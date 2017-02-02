@@ -311,13 +311,13 @@ void setup()
     ArduinoOTA.onEnd([]()
     {
         lcd.setCursor(0, 0);
-        lcd.print("OTA Start");
+        lcd.print("OTA Start          ");
     });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
     {
         char buf[16];
         memset(buf, '\0', sizeof(buf));
-        snprintf(buf, sizeof(buf) - 1, "Upload: %u%%\r", (progress / (total / 100)));
+        snprintf(buf, sizeof(buf) - 1, "Upgrade - %02u%%          ", (progress / (total / 100)));
         lcd.setCursor(0, 0);
         lcd.print(buf);
     });
@@ -327,15 +327,15 @@ void setup()
         Serial.printf("Error[%u]: ", error);
 
         if (error == OTA_AUTH_ERROR)
-            lcd.print("Auth Failed");
+            lcd.print("Auth Failed          ");
         else if (error == OTA_BEGIN_ERROR)
-            lcd.print("Begin Failed");
+            lcd.print("Begin Failed          ");
         else if (error == OTA_CONNECT_ERROR)
-            lcd.print("Connect Failed");
+            lcd.print("Connect Failed          ");
         else if (error == OTA_RECEIVE_ERROR)
-            lcd.print("Receive Failed");
+            lcd.print("Receive Failed          ");
         else if (error == OTA_END_ERROR)
-            lcd.print("End Failed");
+            lcd.print("End Failed          ");
     });
 
     //
