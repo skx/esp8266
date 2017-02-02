@@ -17,7 +17,7 @@ it will instead function as an access-point named `TRAM-TIMES`.
 Connect to this access-point with your mobile, or other device, and
 you can select which network it should auto-join in the future.
 
-(This behaviour is implemented by the excellent [WiFiManager](https://github.com/tzapu/WiFiManager) class.)
+> (This "connect or configure" behaviour is implemented by the excellent [WiFiManager](https://github.com/tzapu/WiFiManager) class.)
 
 The only addition configuration required is to set the tram-stop to
 view - by default it will show the departures of [Kytösuontie](https://hsl.trapeze.fi/omatpysakit/web?command=fullscreen2&stop=1160404).   To change
