@@ -9,7 +9,7 @@
 //   need an RTC to store the time, because even if it drifts it
 //   can't drift too much in that time.
 //
-//   Each additional line of hte display will show the departure
+//   Each additional line of the display will show the departure
 //   of the next tram from the chosen stop.
 //
 //   One a two-line display we thus see output like this:
@@ -109,7 +109,7 @@
 //   https://github.com/tzapu/WiFiManager
 //
 #ifdef WIFI_MANAGER
-# include "WiFiManager.h"  
+# include "WiFiManager.h"
 #endif
 
 
@@ -165,7 +165,6 @@ WiFiServer server(80);
 //
 char screen[NUM_ROWS][NUM_COLS];
 
-
 //
 // Set the LCD address to 0x27, and define the number
 // of rows & columns.
@@ -189,6 +188,11 @@ static const char ntpServerName[] = "time.nist.gov";
 //
 static char tramID[10] = {'\0' };
 
+//
+// Is the backlight lit?  Defaults to true.
+//
+bool backlight = true;
+
 
 
 //
@@ -208,8 +212,8 @@ void setup()
 #ifdef WIFI_MANAGER
 
     WiFiManager wifiManager;
-    wifiManager.autoConnect("TRAM-TIMES" );
-    
+    wifiManager.autoConnect("TRAM-TIMES");
+
 #else
     //
     // Connect to the WiFi network, and set a sane
@@ -253,7 +257,7 @@ void setup()
     //
     // Configure our tram stop
     //
-    strcpy(tramID, TRAM_STOP );
+    strcpy(tramID, TRAM_STOP);
 
     //
     // Ensure our UDP port is listening for receiving NTP-replies
@@ -290,7 +294,6 @@ void setup()
 //
 void loop()
 {
-    static bool backlight = true;
 
     // Keep the previous time, to avoid needless re-draws
     static char prev_time[NUM_COLS] = { '\0'};
@@ -386,67 +389,36 @@ void loop()
         }
 
         // Change the tram-stop?
-        if (request.indexOf("/?stop=" ) != -1)
+        if (request.indexOf("/?stop=") != -1)
         {
-           char *pattern = "/?stop=";
-           char *s = strstr( request.c_str(), pattern );
-           if ( s != NULL )
-           {
-           
-              // Empty the tram ID
-              memset( tramID, '\0', sizeof(tramID));
-           
-             // Skip past the pattern.
-             s += strlen( pattern );
-             
-             // Add characters until we come to a terminating character.
-             for (int i = 0; i < strlen(s); i++)
-             {
-                if ( (s[i] != ' ') && ( s[i] != '&' )  )
-                  tramID[strlen(tramID)] = s[i];
-                else
-                   break;
-             }
+            char *pattern = "/?stop=";
+            char *s = strstr(request.c_str(), pattern);
 
-             // So we've changed the tram ID we should refresh the date.
-             update_tram_time();
-           }
+            if (s != NULL)
+            {
+
+                // Empty the tram ID
+                memset(tramID, '\0', sizeof(tramID));
+
+                // Skip past the pattern.
+                s += strlen(pattern);
+
+                // Add characters until we come to a terminating character.
+                for (int i = 0; i < strlen(s); i++)
+                {
+                    if ((s[i] != ' ') && (s[i] != '&'))
+                        tramID[strlen(tramID)] = s[i];
+                    else
+                        break;
+                }
+
+                // So we've changed the tram ID we should refresh the date.
+                update_tram_time();
+            }
         }
 
         // Return a simple response
-        client.println("HTTP/1.1 200 OK");
-        client.println("Content-Type: text/html");
-        client.println("");
-        client.println("<!DOCTYPE HTML>");
-        client.println("<html><head><title>Tram Times</title></head><body>");
-
-        client.println("<h1>Tram Times</h1>");
-        client.print("<table><tr><th>Screen Output</th></tr>" );
-        
-        // Now show the calculated tram-times
-        for (int i = 0; i < NUM_ROWS; i++)
-        {
-            client.print("<tr><td>");
-            client.print(screen[i]);
-            client.print("</td></tr>");
-        }
-
-        client.println("</table>");
-        
-
-        // Showing the state.
-        if (backlight)
-            client.println("<p>Backlight is ON, <a href=\"/OFF\">turn off</a>.</p>");
-        else
-            client.println("<p>Backlight OFF, <a href=\"/ON\">turn on</a>.</p>");
-
-        // Show a form
-        client.println("<h4>Change Tram Stop</h4><blockquote>" );
-        client.print( "<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"stop\" value=\"");
-        client.print( tramID );
-        client.print( "\"><input type=\"submit\" value=\"Update\"></form>" );
-        client.println("</blockquote>");
-        client.println("</body></html>");
+        serveHTML(client);
         delay(10);
     }
 
@@ -547,13 +519,13 @@ void update_tram_time()
 {
 
     DEBUG_LOG("Making request for tram details \n");
-    DEBUG_LOG( "Tram stop is " );
-    DEBUG_LOG( tramID );
-    DEBUG_LOG( "\n" );
+    DEBUG_LOG("Tram stop is ");
+    DEBUG_LOG(tramID);
+    DEBUG_LOG("\n");
 
-    
+
     char url[128];
-    snprintf( url, sizeof(url)-1, "%s%s", TRAM_BASE, tramID );
+    snprintf(url, sizeof(url) - 1, "%s%s", TRAM_BASE, tramID);
 
     HTTPClient http;
     http.begin(url);
@@ -740,4 +712,89 @@ void sendNTPpacket(IPAddress &address)
     Udp.beginPacket(address, 123); //NTP requests are to port 123
     Udp.write(packetBuffer, NTP_PACKET_SIZE);
     Udp.endPacket();
+}
+
+
+void serveHTML(WiFiClient client)
+{
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: text/html");
+    client.println("");
+
+    client.println("<!DOCTYPE html>");
+    client.println("<html lang=\"en\">");
+    client.println("<head>");
+    client.println("<title>Tram Times</title>");
+    client.println("<meta charset=\"utf-8\">");
+    client.println("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">");
+    client.println("<link href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css\" rel=\"stylesheet\" integrity=\"sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u\" crossorigin=\"anonymous\">");
+    client.println("<script src=\"//code.jquery.com/jquery-1.12.4.min.js\"></script>");
+    client.println("<script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js\" integrity=\"sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa\" crossorigin=\"anonymous\"></script>");
+    client.println("</head>");
+    client.println("<body>");
+    client.println("<nav id=\"nav\" class = \"navbar navbar-default\" style=\"padding-left:50px; padding-right:50px;\">");
+    client.println("<div class = \"navbar-header\">");
+    client.println("<h1 class=\"banner\"><a href=\"/\">Tram Times</a> - <small>by Steve</small></h1>");
+    client.println("</div>");
+    client.println("<ul class=\"nav navbar-nav navbar-right\">");
+    client.println("<li><a href=\"https://steve.fi/Hardware/\">Steve's Projects</a></li>");
+    client.println("</ul>");
+    client.println("</nav>");
+    client.println("<div class=\"container-fluid\">");
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-3\"></div>");
+    client.println("<div class=\"col-md-9\"><h1>Tram Times</h1><p>&nbsp;</p></div>");
+    client.println("</div>");
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("<div class=\"col-md-4\">");
+    client.println("<table class=\"table table-striped table-hover table-condensed table-bordered\">");
+
+    // Now show the calculated tram-times
+    for (int i = 0; i < NUM_ROWS; i++)
+    {
+        client.print("<tr><td>");
+        client.print(screen[i]);
+        client.print("</td></tr>");
+    }
+
+    client.println("</table>");
+    client.println("</div>");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("</div>");
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-3\"></div>");
+    client.println("<div class=\"col-md-9\"> <h2>Backlight</h2><p>&nbsp;</p></div>");
+    client.println("</div>");
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("<div class=\"col-md-4\">");
+
+    // Showing the state.
+    if (backlight)
+        client.println("<p>Backlight is ON, <a href=\"/OFF\">turn off</a>.</p>");
+    else
+        client.println("<p>Backlight OFF, <a href=\"/ON\">turn on</a>.</p>");
+
+    client.println("</div>");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("</div>");
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-3\"></div>");
+    client.println("<div class=\"col-md-9\"> <h2>Change Tram Stop</h2><p>&nbsp;</p></div>");
+    client.println("</div>");
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("<div class=\"col-md-4\">");
+    client.println("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"stop\" value=\"");
+    client.print(tramID);
+    client.println("\"><input type=\"submit\" value=\"Update\"></form>");
+    client.println("</div>");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("</div>");
+    client.println("</div>");
+    client.println("<p>&nbsp;</p>");
+    client.println("</body>");
+    client.println("</html>");
+
 }
