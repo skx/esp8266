@@ -43,6 +43,17 @@
 
 
 //
+// The name of this project.
+//
+// Used for:
+//   Access-Point name, in config-mode
+//   OTA name.
+//
+#define PROJECT_NAME "TRAM-TIMES"
+
+
+
+//
 // Use the user-friendly WiFI library?
 //
 // If you don't want to use this then comment out the following line:
@@ -115,9 +126,10 @@
 
 
 //
-// WiFi
+// WiFi & over the air updates
 //
 #include <ESP8266WiFi.h>
+#include <ArduinoOTA.h>
 
 //
 // HTTP
@@ -212,7 +224,7 @@ void setup()
 #ifdef WIFI_MANAGER
 
     WiFiManager wifiManager;
-    wifiManager.autoConnect("TRAM-TIMES");
+    wifiManager.autoConnect(PROJECT_NAME);
 
 #else
     //
@@ -220,7 +232,7 @@ void setup()
     // hostname so we can ping it by name.
     //
     WiFi.mode(WIFI_STA);
-    WiFi.hostname("tram-clock");
+    WiFi.hostname(PROJECT_NAME);
     WiFi.begin(WIFI_SSID, WIFI_PASS);
 
 
@@ -276,10 +288,60 @@ void setup()
 
 
     //
-    // Finally we start our HTTP server
+    // Now we can start our HTTP server
     //
     server.begin();
     DEBUG_LOG("Server started\n");
+
+    //
+    // The final step is to allow over the air updates
+    //
+    // This is documented here:
+    //     https://randomnerdtutorials.com/esp8266-ota-updates-with-arduino-ide-over-the-air/
+    //
+    // Hostname defaults to esp8266-[ChipID]
+    //
+    ArduinoOTA.setHostname(PROJECT_NAME);
+
+    ArduinoOTA.onStart([]()
+    {
+        lcd.setCursor(0, 0);
+        lcd.print("OTA Start");
+    });
+    ArduinoOTA.onEnd([]()
+    {
+        lcd.setCursor(0, 0);
+        lcd.print("OTA Start");
+    });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
+    {
+        char buf[16];
+        memset(buf, '\0', sizeof(buf));
+        snprintf(buf, sizeof(buf) - 1, "Upload: %u%%\r", (progress / (total / 100)));
+        lcd.setCursor(0, 0);
+        lcd.print(buf);
+    });
+    ArduinoOTA.onError([](ota_error_t error)
+    {
+        lcd.setCursor(0, 0);
+        Serial.printf("Error[%u]: ", error);
+
+        if (error == OTA_AUTH_ERROR)
+            lcd.print("Auth Failed");
+        else if (error == OTA_BEGIN_ERROR)
+            lcd.print("Begin Failed");
+        else if (error == OTA_CONNECT_ERROR)
+            lcd.print("Connect Failed");
+        else if (error == OTA_RECEIVE_ERROR)
+            lcd.print("Receive Failed");
+        else if (error == OTA_END_ERROR)
+            lcd.print("End Failed");
+    });
+
+    //
+    // Ensure the OTA process is running & listening.
+    //
+    ArduinoOTA.begin();
 }
 
 
@@ -297,6 +359,11 @@ void loop()
 
     // Keep the previous time, to avoid needless re-draws
     static char prev_time[NUM_COLS] = { '\0'};
+
+    //
+    // Handle any pending over the air updates.
+    //
+    ArduinoOTA.handle();
 
     //
     // Get the current time.
