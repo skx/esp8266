@@ -298,7 +298,7 @@ void loop()
     long now = millis();
 
     if ((last_read == 0) ||
-            (abs(now - last_read) > 1000))
+            (abs(now - last_read) > 500))
     {
         // Invert the "show :" flag
         flash = !flash;
