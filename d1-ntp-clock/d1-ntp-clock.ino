@@ -116,7 +116,7 @@ void setup()
     // Enable our serial port.
     Serial.begin(115200);
 
-    // initialize the disply
+    // initialize the display
     tm1637.init();
 
     // We want to see ":" between the digits.
