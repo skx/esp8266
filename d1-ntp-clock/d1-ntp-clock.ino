@@ -1,6 +1,27 @@
+//
+//   NTP-Based Clock - https://steve.fi/Hardware/
+//
+//   This is a simple program which uses WiFi & an 4x7-segment display
+//   to show the current time, complete with blinking ":".
+//
+//   Steve
+//   --
+//
+
 
 //
-// DIsplay
+// WiFi & over the air updates
+//
+#include <ESP8266WiFi.h>
+#include <ArduinoOTA.h>
+
+//
+// NTP uses UDP.
+//
+#include <WiFiUdp.h>
+
+//
+// The display-interface
 //
 #include "TM1637.h"
 
@@ -8,8 +29,6 @@
 // Time & NTP
 //
 #include "TimeLib.h"
-
-
 
 
 //
@@ -59,45 +78,20 @@
 //
 //  Otherwise define a SSID / Password
 //
-#ifndef WIFI_MANAGER
+#ifdef WIFI_MANAGER
+# include "WiFiManager.h"
+#else
 # define WIFI_SSID "SCOTLAND"
 # define WIFI_PASS "highlander1"
 #endif
 
-
-
-//
-// Damn this is a nice library!
-//
-//   https://github.com/tzapu/WiFiManager
-//
-#ifdef WIFI_MANAGER
-# include "WiFiManager.h"
-#endif
-
-
-
-//
-// WiFi & over the air updates
-//
-#include <ESP8266WiFi.h>
-#include <ArduinoOTA.h>
-
-//
-// HTTP
-//
-#include <ESP8266HTTPClient.h>
-
-//
-// NTP uses UDP.
-//
-#include <WiFiUdp.h>
 
 //
 // UDP-socket & local-port for replies.
 //
 WiFiUDP Udp;
 unsigned int localPort = 2390;
+
 
 //
 // The NTP-server we use.
@@ -112,6 +106,11 @@ static const char ntpServerName[] = "time.nist.gov";
 #define DIO D2
 TM1637 tm1637(CLK, DIO);
 
+
+
+//
+// This function is called when the device is powered-on.
+//
 void setup()
 {
     // Enable our serial port.
@@ -123,8 +122,14 @@ void setup()
     // We want to see ":" between the digits.
     tm1637.point(true);
 
-    // Set the intensity
-    tm1637.set(BRIGHT_DARKEST);  //BRIGHT_TYPICAL = 2,BRIGHT_DARKEST = 0,BRIGHTEST = 7;
+    //
+    // Set the intensity - valid choices include:
+    //
+    //   BRIGHT_DARKEST   = 0
+    //   BRIGHT_TYPICAL   = 2
+    //   BRIGHT_BRIGHTEST = 7
+    //
+    tm1637.set(BRIGHT_DARKEST);
 
     //
     // Handle WiFi setup
@@ -142,7 +147,6 @@ void setup()
     WiFi.mode(WIFI_STA);
     WiFi.hostname(PROJECT_NAME);
     WiFi.begin(WIFI_SSID, WIFI_PASS);
-
 
     //
     // Show that we're connecting to the WiFi.
@@ -234,6 +238,15 @@ void setup()
 
 }
 
+
+
+//
+// This function is called continously, and is responsible
+// for flashing the ":", and otherwise updating the display.
+//
+// We rely on the background NTP-updates to actually make sure
+// that that works.
+//
 void loop()
 {
     static char buf[10] = { '\0' };
@@ -265,14 +278,22 @@ void loop()
         tm1637.display(2, buf[2] - '0');
         tm1637.display(3, buf[3] - '0');
 
-        // And log it.
-        DEBUG_LOG(buf);
-        DEBUG_LOG(" ");
-        DEBUG_LOG(prev);
-        DEBUG_LOG("\n");
-
+        // And cache it
         strcpy(prev , buf);
+
     }
+
+
+    //
+    // The preceeding piece of code would
+    // have ensured the display only updated
+    // when the hour/min changed.
+    //
+    // However note that we nuke the cached
+    // value every second - solely so we can
+    // blink the ":".
+    //
+    //  Sigh
 
     long now = millis();
 
@@ -282,7 +303,7 @@ void loop()
         // Invert the "show :" flag
         flash = !flash;
 
-        // Update it
+        // Apply it.
         tm1637.point(flash);
 
         // However note that the ":" won't redraw
@@ -387,5 +408,3 @@ void sendNTPpacket(IPAddress &address)
     Udp.write(packetBuffer, NTP_PACKET_SIZE);
     Udp.endPacket();
 }
-
-
