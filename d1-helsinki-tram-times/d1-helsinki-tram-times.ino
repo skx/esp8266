@@ -595,97 +595,97 @@ void update_tram_time()
     snprintf(url, sizeof(url) - 1, "%s%s", TRAM_BASE, tramID);
 
     HTTPClient http;
+
+    // Set a timeout of ten seconds
+    http.setTimeout(10000);
     http.begin(url);
 
     // httpCode will be negative on error
     int httpCode = http.GET();
 
-    if (httpCode > 0)
+    // file found at server
+    if (httpCode == HTTP_CODE_OK)
     {
 
-        // file found at server
-        if (httpCode == HTTP_CODE_OK)
+        // Get the body of the response.
+        // This uses some hellish String object.
+        String payload = http.getString();
+
+        // Convert to C-string, because we're adults
+        const char *input = payload.c_str();
+
+        //
+        // The line we're writing in our scren-array
+        //
+        // (Line 0 contains the time/date, so we start at line 1)
+        //
+        int line = 1;
+
+        //
+        // Start of JSON object-entry.
+        //
+        int start = -1;
+
+        //
+        // Process each part of the string looking for
+        // regions deliminated by "{" + "}".
+        //
+        // Each such entry is an object, and from that
+        // we look for the "time" field.
+        //
+        for (int i = 0; i < strlen(input); i++)
         {
+            // Start of object.
+            if (input[i] == '{')
+                start = i;
 
-            // Get the body of the response.
-            // This uses some hellish String object.
-            String payload = http.getString();
-
-            // Convert to C-string, because we're adults
-            const char *input = payload.c_str();
-
-            //
-            // The line we're writing in our scren-array
-            //
-            // (Line 0 contains the time/date, so we start at line 1)
-            //
-            int line = 1;
-
-            //
-            // Start of JSON object-entry.
-            //
-            int start = -1;
-
-            //
-            // Process each part of the string looking for
-            // regions deliminated by "{" + "}".
-            //
-            // Each such entry is an object, and from that
-            // we look for the "time" field.
-            //
-            for (int i = 0; i < strlen(input); i++)
+            // End of object.
+            if ((input[i] == '}') && (start >= 0))
             {
-                // Start of object.
-                if (input[i] == '{')
-                    start = i;
+                //
+                // We've found a complete object entry, save
+                // that as a string.
+                //
+                char tmp[255];
+                memset(tmp, '\0', sizeof(tmp));
+                strncpy(tmp, input + start, i - start + 1);
 
-                // End of object.
-                if ((input[i] == '}') && (start >= 0))
+                // Are we still in the bounds of our LCD?
+                if (line < NUM_ROWS)
                 {
-                    //
-                    // We've found a complete object entry, save
-                    // that as a string.
-                    //
-                    char tmp[255];
-                    memset(tmp, '\0', sizeof(tmp));
-                    strncpy(tmp, input + start, i - start + 1);
+                    // If so we can populate the line of the LCD-data
+                    // with the parsed details from this line.
+                    update_line_from_json(line, tmp);
 
-                    // Are we still in the bounds of our LCD?
-                    if (line < NUM_ROWS)
-                    {
-                        // If so we can populate the line of the LCD-data
-                        // with the parsed details from this line.
-                        update_line_from_json(line, tmp);
-
-                        // Log to the serial console
-                        DEBUG_LOG("Entry ");
-                        DEBUG_LOG(line);
-                        DEBUG_LOG(" is ");
-                        DEBUG_LOG(screen[line]);
-                        DEBUG_LOG("\n");
-                    }
-
-                    //
-                    // And we move on to the next line.
-                    //
-                    line++;
-
-
-                    // Reset for finding the start of the next JSON-object.
-                    start = -1;
+                    // Log to the serial console
+                    DEBUG_LOG("Entry ");
+                    DEBUG_LOG(line);
+                    DEBUG_LOG(" is ");
+                    DEBUG_LOG(screen[line]);
+                    DEBUG_LOG("\n");
                 }
+
+                //
+                // And we move on to the next line.
+                //
+                line++;
+
+
+                // Reset for finding the start of the next JSON-object.
+                start = -1;
             }
-        }
-        else
-        {
-            DEBUG_LOG("HTTP-fetch failed: ");
-            DEBUG_LOG(http.errorToString(httpCode).c_str());
-            DEBUG_LOG("\n");
         }
 
         http.end();
     }
 
+    else
+    {
+        DEBUG_LOG("HTTP-fetch failed: ");
+        DEBUG_LOG(http.errorToString(httpCode).c_str());
+        snprintf(screen[1], NUM_COLS - 1, http.errorToString(httpCode).c_str());
+        DEBUG_LOG("\n");
+    }
 }
 
 /*-------- NTP code ----------*/
