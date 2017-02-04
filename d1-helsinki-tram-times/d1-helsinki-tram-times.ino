@@ -853,11 +853,11 @@ void serveHTML(WiFiClient client)
     client.println("<div class=\"row\">");
     client.println("<div class=\"col-md-4\"></div>");
     client.println("<div class=\"col-md-4\">");
-    client.println("You are currently monitoring the tram-stop with ID <a href=\"http://hsl.trapeze.fi/omatpysakit/web?command=fullscreen2&stop=");
-    client.println(tramID);
-    client.println("\">");
-    client.println(tramID);
-    client.println("</a>, but you can change that:</p>");
+    client.print("<p>You are currently monitoring the tram-stop with ID <a href=\"http://hsl.trapeze.fi/omatpysakit/web?command=fullscreen2&stop=");
+    client.print(tramID);
+    client.print("\">");
+    client.print(tramID);
+    client.print("</a>, but you can change that:</p>");
     client.println("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"stop\" value=\"");
     client.print(tramID);
     client.println("\"><input type=\"submit\" value=\"Update\"></form>");
