@@ -37,6 +37,11 @@
 //
 //    http://192.168.10.51/
 //
+//   Because the Helsinki Tram API has recently changed we've
+// started polling from a site that I control:
+//
+//   https://steve.fi/Helsinki/Tram-API/
+//
 //   Steve
 //   --
 //
@@ -77,7 +82,9 @@
 //
 // The URL to poll
 //
-#define TRAM_BASE "http://hsl.trapeze.fi/omatpysakit/web?command=fullscreen2&action=departures&stop="
+#define TRAM_HOST "steve.fi"
+#define TRAM_PATH "/Helsinki/Tram-API/api.cgi?id="
+
 
 //
 // The tram ID
@@ -132,9 +139,11 @@
 #include <ArduinoOTA.h>
 
 //
-// HTTP
+// HTTP server & SSL-fetching.
 //
 #include <ESP8266HTTPClient.h>
+#include <WiFiClientSecure.h>
+
 
 //
 // NTP uses UDP.
@@ -390,7 +399,7 @@ void loop()
     //
     if (((min % 2 == 0) && (sec == 0)) ||
             (strlen(screen[1]) == 0))
-        update_tram_time();
+        fetch_tram_times();
 
 
     //
@@ -480,7 +489,7 @@ void loop()
                 }
 
                 // So we've changed the tram ID we should refresh the date.
-                update_tram_time();
+                fetch_tram_times();
             }
         }
 
@@ -496,83 +505,156 @@ void loop()
 }
 
 
-//
-// Update the given line of the display, from the
-// specified JSON object.
-//
-void update_line_from_json(int line, char *txt)
+void  update_tram_times(const char *txt)
 {
-    //
-    // The time will either be "XX min", or "12:34" so we're
-    // going to say ten bytes is enough.
-    //
-    char tm[10] = { '\0' };
+    char* pch = NULL;
 
-    //
-    //  The "line" will be "10", "4", "7", or similar.
-    //
-    //  Again ten bytes should be enough for everybody.
-    //
-    char ln[10] = { '\0' };
+    int line = 1;
+    pch = strtok((char *)txt, "\r\n");
 
-    //
-    // We're looking for whatever is between:
-    //
-    //      "line": "
-    // and
-    //
-    //      "
-    //
-    // (i.e. The tram-line.)
-    //
-    char *line_patt  = "\"line\": \"";
-    char *line_start = strstr(txt, line_patt);
-
-    if (line_start != NULL)
+    while (pch != NULL)
     {
-        //  Move past the pattern itself.
-        line_start += strlen(line_patt);
-
-        // Add characters until we come to that terminating quote.
-        for (int i = 0; i < strlen(line_start); i++)
+        //
+        // If we got a line, and it is at least ten characters
+        // long then it is probably valid.
+        //
+        // The line will be:
+        //
+        //  STOP,TIME,NAME
+        //
+        if ((strlen(pch) > 10) && (line < NUM_ROWS))
         {
-            if (line_start[i] != '\"')
-                ln[strlen(ln)] = line_start[i];
-            else
-                break;
+
+            //
+            // Skip newlines / carriage returns
+            //
+            while (pch[0] == '\n' || pch[0] == '\r')
+                pch += 1;
+
+            DEBUG_LOG("LINE: '");
+            DEBUG_LOG(pch);
+            DEBUG_LOG("'\n");
+
+            //
+            // The time & line-number.
+            //
+            char tm[6] = { '\0' };
+            char ln[3] = { '\0' };
+
+            //
+            // This is sleazy, but efficient.
+            //
+            ln[0] = pch[0];
+            ln[1] = pch[1];
+            ln[2] = '\0';
+
+            //
+            // This is sleazy, but efficient.
+            //
+            tm[0] = pch[3];  // 1
+            tm[1] = pch[4];  // 2
+            tm[2] = pch[5];  // :
+            tm[3] = pch[6];  // 3
+            tm[4] = pch[7];  // 4
+            tm[5] = '\0';
+
+            //
+            // Format into our screen-buffer
+            //
+            snprintf(screen[line], NUM_COLS - 1, "Tram %s @%s", ln, tm);
+
+            DEBUG_LOG("Generated line ");
+            DEBUG_LOG(line);
+            DEBUG_LOG(" '");
+            DEBUG_LOG(screen[line]);
+            DEBUG_LOG("'\n");
+
+            //
+            // Bump to the next display-line
+            //
+            line += 1;
         }
 
+        pch = strtok(NULL, "\r\n");
     }
-
-    //
-    // Same again, except we're looking for "time" this time.
-    //
-    char *time_patt  = "\"time\": \"";
-    char *time_start = strstr(txt, time_patt);
-
-    if (time_start != NULL)
-    {
-        // Move past the pattern itself.
-        time_start += strlen(time_patt);
-
-        // Add characters until we come to that terminating quote.
-        for (int i = 0; i < strlen(time_start); i++)
-        {
-            if (time_start[i] != '\"')
-                tm[strlen(tm)] = time_start[i];
-            else
-                break;
-        }
-
-    }
-
-    // Format the entry neatly.
-    if (strlen(ln) && strlen(tm))
-        snprintf(screen[line], NUM_COLS, "Tram %s @ %s", ln, tm);
-    else
-        snprintf(screen[line], NUM_COLS, "Failed to parse");
-
 }
+
+
+
+String fetchURL(const char *host, const char *path)
+{
+    WiFiClientSecure client;
+
+    String headers = "";
+    String body = "";
+    bool finishedHeaders = false;
+    bool currentLineIsBlank = true;
+    bool gotResponse = false;
+    long now;
+
+
+    if (client.connect(host, 443))
+    {
+        DEBUG_LOG("connected to host ");
+        DEBUG_LOG(host);
+        DEBUG_LOG("\n");
+
+        client.print("GET ");
+        client.print(path);
+        client.println(" HTTP/1.1");
+
+        client.print("Host: ");
+        client.println(host);
+        client.println("User-Agent: arduino/1.0");
+        client.println("");
+
+        now = millis();
+
+        // checking the timeout
+        while (millis() - now < 1500)
+        {
+            while (client.available())
+            {
+                char c = client.read();
+
+                if (finishedHeaders)
+                {
+                    body = body + c;
+                }
+                else
+                {
+                    if (currentLineIsBlank && c == '\n')
+                    {
+                        finishedHeaders = true;
+                    }
+                    else
+                    {
+                        headers = headers + c;
+                    }
+                }
+
+                if (c == '\n')
+                {
+                    currentLineIsBlank = true;
+                }
+                else if (c != '\r')
+                {
+                    currentLineIsBlank = false;
+                }
+
+                //marking we got a response
+                gotResponse = true;
+
+            }
+
+            if (gotResponse)
+                break;
+        }
+    }
+
+    return (body);
+}
+
 
 
 
@@ -582,111 +664,20 @@ void update_line_from_json(int line, char *txt)
 // This function will update the global "screen" array
 // with the departure time of the next tram(s).
 //
-void update_tram_time()
+void fetch_tram_times()
 {
-
     DEBUG_LOG("Making request for tram details \n");
     DEBUG_LOG("Tram stop is ");
     DEBUG_LOG(tramID);
     DEBUG_LOG("\n");
 
-
     char url[128];
-    snprintf(url, sizeof(url) - 1, "%s%s", TRAM_BASE, tramID);
+    snprintf(url, sizeof(url) - 1, "%s%s", TRAM_PATH, tramID);
 
-    HTTPClient http;
-
-    // Set a timeout of ten seconds
-    http.setTimeout(10000);
-    http.begin(url);
-
-    // httpCode will be negative on error
-    int httpCode = http.GET();
-
-    // file found at server
-    if (httpCode == HTTP_CODE_OK)
-    {
-
-        // Get the body of the response.
-        // This uses some hellish String object.
-        String payload = http.getString();
-
-        // Convert to C-string, because we're adults
-        const char *input = payload.c_str();
-
-        //
-        // The line we're writing in our scren-array
-        //
-        // (Line 0 contains the time/date, so we start at line 1)
-        //
-        int line = 1;
-
-        //
-        // Start of JSON object-entry.
-        //
-        int start = -1;
-
-        //
-        // Process each part of the string looking for
-        // regions deliminated by "{" + "}".
-        //
-        // Each such entry is an object, and from that
-        // we look for the "time" field.
-        //
-        for (int i = 0; i < strlen(input); i++)
-        {
-            // Start of object.
-            if (input[i] == '{')
-                start = i;
-
-            // End of object.
-            if ((input[i] == '}') && (start >= 0))
-            {
-                //
-                // We've found a complete object entry, save
-                // that as a string.
-                //
-                char tmp[255];
-                memset(tmp, '\0', sizeof(tmp));
-                strncpy(tmp, input + start, i - start + 1);
-
-                // Are we still in the bounds of our LCD?
-                if (line < NUM_ROWS)
-                {
-                    // If so we can populate the line of the LCD-data
-                    // with the parsed details from this line.
-                    update_line_from_json(line, tmp);
-
-                    // Log to the serial console
-                    DEBUG_LOG("Entry ");
-                    DEBUG_LOG(line);
-                    DEBUG_LOG(" is ");
-                    DEBUG_LOG(screen[line]);
-                    DEBUG_LOG("\n");
-                }
-
-                //
-                // And we move on to the next line.
-                //
-                line++;
-
-
-                // Reset for finding the start of the next JSON-object.
-                start = -1;
-            }
-        }
-
-        http.end();
-    }
-
-    else
-    {
-        DEBUG_LOG("HTTP-fetch failed: ");
-        DEBUG_LOG(http.errorToString(httpCode).c_str());
-        snprintf(screen[1], NUM_COLS - 1, http.errorToString(httpCode).c_str());
-        DEBUG_LOG("\n");
-    }
+    String body = fetchURL(TRAM_HOST, url);
+    update_tram_times(body.c_str());
 }
+
 
 /*-------- NTP code ----------*/
 
@@ -853,7 +844,7 @@ void serveHTML(WiFiClient client)
     client.println("<div class=\"row\">");
     client.println("<div class=\"col-md-4\"></div>");
     client.println("<div class=\"col-md-4\">");
-    client.print("<p>You are currently monitoring the tram-stop with ID <a href=\"http://hsl.trapeze.fi/omatpysakit/web?command=fullscreen2&stop=");
+    client.print("<p>You are currently monitoring the tram-stop with ID <a href=\"https://beta.reittiopas.fi/pysakit/HSL:");
     client.print(tramID);
     client.print("\">");
     client.print(tramID);
