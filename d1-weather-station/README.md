@@ -6,3 +6,11 @@ area, and then displays it on a connected OLED.
 ## Wiring
 
 OLED display is wired to pins D3/D4.
+
+## Source
+
+The source for this project is a __very__ lightly modified version of the code
+available here:
+
+* https://github.com/squix78/esp8266-weather-station
+
