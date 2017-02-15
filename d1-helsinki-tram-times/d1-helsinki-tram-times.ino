@@ -76,8 +76,8 @@
 //
 // The number of rows/columns of our display.
 //
-#define NUM_ROWS 2
-#define NUM_COLS 16
+#define NUM_ROWS 4
+#define NUM_COLS 20
 
 //
 // The URL to poll
@@ -561,7 +561,7 @@ void  update_tram_times(const char *txt)
             //
             // Format into our screen-buffer
             //
-            snprintf(screen[line], NUM_COLS - 1, "Tram %s @%s", ln, tm);
+            snprintf(screen[line], NUM_COLS - 1, "  Tram %s @ %s", ln, tm);
 
             DEBUG_LOG("Generated line ");
             DEBUG_LOG(line);
