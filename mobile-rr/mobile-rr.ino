@@ -460,6 +460,14 @@ void setupHTTPServer()
         request->send ( SPIFFS, "/console.htm" );
     } );
 
+    httpd.on ( "/count",HTTP_GET, [] ( AsyncWebServerRequest * request )
+    {
+        char buf[128];
+        snprintf(buf, sizeof(buf)-1, "Rick Roll Count: %d Session, %d Total", rrsession, rrtotal );
+
+        request->send ( 200, "text/html", String ( buf ) );
+      
+    } );
     httpd.on ( "/trigger", HTTP_GET, [] ( AsyncWebServerRequest * request )
     {
         rrsession++;
