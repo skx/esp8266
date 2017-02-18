@@ -79,10 +79,7 @@ int channel                 = 0;
 char username[]             = "rick";
 char password[]             = "roll";
 bool DEBUG                  = 1;
-bool SILENT                 = 0;
 int interval                = 30;                                               // 30 Minutes
-
-#define PIEZO_PIN       4
 
 // Maximum number of simultaneous clients connected (WebSocket)
 #define MAX_WS_CLIENT   3
@@ -95,7 +92,6 @@ int interval                = 30;                                               
         "------------------------\n" \
         "[[b;cyan;]?] or [[b;cyan;]help]    show this help\n\n" \
         "[[b;cyan;]debug {0/1}]  show/set debug output\n" \
-        "[[b;cyan;]silent {0/1}] show/set silent mode\n" \
         "[[b;cyan;]ssid 's']     show/set SSID to 's'\n" \
         "[[b;cyan;]chan {0-11}]  show/set channel (0=auto)\n" \
         "[[b;cyan;]int {n}]      show/set auto scan interval\n" \
@@ -103,7 +99,6 @@ int interval                = 30;                                               
         "[[b;cyan;]msg 's']      show/set message to 's'\n" \
         "[[b;cyan;]user 's']     show/set username to 's'\n" \
         "[[b;cyan;]pass 's']     show/set password to 's'\n\n" \
-        "[[b;cyan;]beep {n/rr}]  sound piezo for 'n' ms\n" \
         "[[b;cyan;]count]        show Rick Roll count\n" \
         "[[b;cyan;]info]         show system information\n" \
         "[[b;cyan;]json {e/s/i}] show EEPROM, App Settings,\n" \
@@ -126,9 +121,6 @@ typedef struct
 enum class statemachine
 {
     none,
-    beep,
-    beep_c,
-    beep_rr,
     scan_wifi,
     ap_change,
     read_file
@@ -246,123 +238,6 @@ String formatBytes ( size_t bytes )
     }
 }
 
-//***************************************************************************
-//                    P I E Z O   B E E P                                   *
-//***************************************************************************
-void beep ( int delayms )
-{
-    digitalWrite ( PIEZO_PIN, HIGH );                                       // Turn PIEZO on
-    delay ( delayms );                                                      // wait for a delayms ms
-    digitalWrite ( PIEZO_PIN, LOW );                                        // Turn PIEZO off
-}
-
-void beepC ( int delayms )
-{
-    for ( int c = 0; c < 448; c++ )
-    {
-        digitalWrite ( PIEZO_PIN, HIGH );
-        delayMicroseconds ( delayms );
-        digitalWrite ( PIEZO_PIN, LOW );
-        delayMicroseconds ( delayms );
-    }
-
-    delay ( 100 );
-
-    for ( int c = 0; c < 224; c++ )
-    {
-        digitalWrite ( PIEZO_PIN, HIGH );
-        delayMicroseconds ( delayms - ( delayms * .1 ) );
-        digitalWrite ( PIEZO_PIN, LOW );
-        delayMicroseconds ( delayms - ( delayms * .1 ) );
-    }
-}
-
-void beep_rr ()
-{
-    // We'll set up an array with the notes we want to play
-    // change these values to make different songs!
-
-    // Length must equal the total number of notes and spaces
-
-    const int songLength = 18;
-
-    // Notes is an array of text characters corresponding to the notes
-    // in your song. A space represents a rest (no tone)
-
-    char notes[] = "cdfda ag cdfdg gf "; // a space represents a rest
-
-    // Beats is an array values for each note and rest.
-    // A "1" represents a quarter-note, 2 a half-note, etc.
-    // Don't forget that the rests (spaces) need a length as well.
-
-    int beats[] = {1, 1, 1, 1, 1, 1, 4, 4, 2, 1, 1, 1, 1, 1, 1, 4, 4, 2};
-
-    // The tempo is how fast to play the song.
-    // To make the song play faster, decrease this value.
-
-    int tempo = 125;
-
-    //dbg_printf("Tempo %d\n", tempo);
-
-    int i, duration;
-
-    digitalWrite ( LED_BUILTIN, LOW );
-
-    for ( i = 0; i < songLength; i++ ) // step through the song arrays
-    {
-        duration = beats[i] * tempo; // length of note/rest in ms
-
-        if ( notes[i] == ' ' ) // is this a rest?
-        {
-            delay ( duration ); // then pause for a moment
-        }
-        else                  // otherwise, play the note
-        {
-            analogWriteFreq ( frequency ( notes[i] ) );
-            analogWrite ( PIEZO_PIN, 800 );
-            delay ( duration );
-            analogWrite ( PIEZO_PIN, 0 );
-        }
-
-        delay ( tempo / 10 ); // brief pause between notes
-    }
-
-    digitalWrite ( LED_BUILTIN, HIGH );
-}
-
-int frequency ( char note )
-{
-    // This function takes a note character (a-g), and returns the
-    // corresponding frequency in Hz for the tone() function.
-
-    int i;
-    const int numNotes = 8; // number of notes we're storing
-
-    // The following arrays hold the note characters and their
-    // corresponding frequencies. The last "C" note is uppercase
-    // to separate it from the first lowercase "c". If you want to
-    // add more notes, you'll need to use unique characters.
-
-    // For the "char" (character) type, we put single characters
-    // in single quotes.
-
-    char names[] = { 'c', 'd', 'e', 'f', 'g', 'a', 'b', 'C' };
-    int frequencies[] = {262, 294, 330, 349, 392, 440, 494, 523};
-
-    // Now we'll search through the letters in the array, and if
-    // we find it, we'll return the frequency for that note.
-
-    for ( i = 0; i < numNotes; i++ ) // Step through the notes
-    {
-        if ( names[i] == note ) // Is this the one?
-        {
-            return ( frequencies[i] ); // Yes! Return the frequency
-        }
-    }
-
-    return ( 0 ); // We looked through everything and didn't find it,
-    // but we still need to return a value, so return 0.
-}
 
 //***************************************************************************
 //                    S E T U P                                             *
@@ -391,9 +266,6 @@ void setup ( void )
     // Load EEPROM Settings
     setupEEPROM();
 
-    pinMode ( PIEZO_PIN, OUTPUT );                                          // initialize PIEZO PIN as output
-
-    if ( !SILENT ) beep_rr();
 
     // Setup Access Point
     wifi_set_phy_mode ( PHY_MODE_11B );
@@ -606,11 +478,6 @@ void setupHTTPServer()
         request->send ( 200, "text/html", String ( rrsession ) );
         eepromSave();
 
-        if ( !SILENT )
-        {
-            state_int = 200;
-            state = statemachine::beep_c;
-        }
 
         //List all collected headers
         int headers = request->headers();
@@ -838,7 +705,6 @@ String getApplicationSettings()
     root["username"] = username;
     root["password"] = password;
     root["debug"] = DEBUG;
-    root["silent"] = SILENT;
     root["rrsession"] = rrsession;
     root["rrtotal"] = rrtotal;
 
@@ -886,7 +752,6 @@ void eepromLoad()
         sprintf ( password, "%s", root["password"].asString() );
 
         DEBUG = root["debug"];
-        SILENT = root["silent"];
         rrtotal = root["rrtotal"];
 
         // If the AppID doesn't match then initialize EEPROM
@@ -917,7 +782,6 @@ void eepromSave()
     root["username"] = username;
     root["password"] = password;
     root["debug"] = DEBUG;
-    root["silent"] = SILENT;
     root["rrtotal"] = rrtotal;
 
     char buffer[512];
@@ -989,18 +853,6 @@ void loop ( void )
 
     switch ( state )
     {
-        case statemachine::beep:
-            beep ( state_int );
-            break;
-
-        case statemachine::beep_c:
-            beepC ( state_int );
-            break;
-
-        case statemachine::beep_rr:
-            beep_rr();
-            break;
-
         case statemachine::scan_wifi:
             scanWiFi();
             break;
@@ -1306,34 +1158,6 @@ void execCommand ( AsyncWebSocketClient *client, char *msg )
         }
 
     }
-    else if ( !strncasecmp_P ( msg, PSTR ( "silent" ), 6 ) )
-    {
-        if ( l > 6 )
-        {
-            int v = atoi ( &msg[7] );
-
-            if ( v > 0 )
-            {
-                SILENT = true;
-            }
-            else
-            {
-                SILENT = false;
-            }
-
-            CHANGED = true;
-        }
-
-        if ( SILENT )
-        {
-            client->printf_P ( PSTR ( "[[b;green;]SILENT mode enabled]" ) );
-        }
-        else
-        {
-            client->printf_P ( PSTR ( "[[b;yellow;]SILENT mode disabled]" ) );
-        }
-
-    }
     // Dir files on SPIFFS system
     // --------------------------
     else if ( !strcasecmp_P ( msg, PSTR ( "ls" ) ) )
@@ -1432,37 +1256,6 @@ void execCommand ( AsyncWebSocketClient *client, char *msg )
 
         client_status ( client );
     }
-    else if ( !strncasecmp_P ( msg, PSTR ( "beep" ), 4 ) )
-    {
-        if ( strstr ( msg, "rr" ) )
-        {
-            client->printf_P ( PSTR ( "[[b;green;]NEVER GONNA GIVE YOU UP!]" ) );
-            state = statemachine::beep_rr;
-        }
-        else
-        {
-            if ( strstr ( msg, "c" ) )
-            {
-                int v = atoi ( &msg[6] );
-
-                if ( v == 0 ) v = 50;
-
-                client->printf_P ( PSTR ( "[[b;yellow;]CHIRP!] %dms" ), v );
-                state_int = v;
-                state = statemachine::beep_c;
-            }
-            else
-            {
-                int v = atoi ( &msg[5] );
-
-                if ( v == 0 ) v = 50;
-
-                client->printf_P ( PSTR ( "[[b;yellow;]BEEP!] %dms" ), v );
-                state_int = v;
-                state = statemachine::beep;
-            }
-        }
-    }
     else if ( !strncasecmp_P ( msg, PSTR ( "user" ), 4 ) )
     {
         if ( !strncasecmp_P ( msg, PSTR ( "user " ), 5 ) )
@@ -1500,12 +1293,6 @@ void execCommand ( AsyncWebSocketClient *client, char *msg )
             sprintf ( ssid, "%s", &msg[5] );
             client->printf_P ( PSTR ( "[[b;yellow;]Changing WiFi SSID:] %s" ), ssid );
 
-            if ( !SILENT )
-            {
-                state_int = 500;
-                state = statemachine::beep;
-            }
-
             eepromSave();
             state = statemachine::ap_change;
         }
@@ -1535,12 +1322,6 @@ void execCommand ( AsyncWebSocketClient *client, char *msg )
             {
                 v = 0;
                 client->printf_P ( PSTR ( "[[b;yellow;]Changing WiFi Channel:] AUTO" ) );
-            }
-
-            if ( !SILENT )
-            {
-                state_int = 500;
-                state = statemachine::beep;
             }
 
             channel = v;
@@ -1574,12 +1355,6 @@ void execCommand ( AsyncWebSocketClient *client, char *msg )
                 client->printf_P ( PSTR ( "[[b;yellow;]Auto Scan:] ENABLED" ) );
             }
 
-            if ( !SILENT )
-            {
-                state_int = 500;
-                state = statemachine::beep;
-            }
-
             interval = v;
 
             CHANGED = true;
@@ -1597,12 +1372,6 @@ void execCommand ( AsyncWebSocketClient *client, char *msg )
     else if ( !strncasecmp_P ( msg, PSTR ( "save" ), 4 ) )
     {
         client->printf_P ( PSTR ( "[[b;green;]Saving Settings to EEPROM]" ) );
-
-        if ( !SILENT )
-        {
-            state_int = 500;
-            state = statemachine::beep;
-        }
 
         eepromSave();
     }
@@ -1639,12 +1408,6 @@ void execCommand ( AsyncWebSocketClient *client, char *msg )
                 Serial.printf ( "Writing File: [%s]", &msg[4] );
                 client->printf_P ( PSTR ( "[[b;yellow;]Changing Message:] %s" ), &msg[4] );
 
-                if ( !SILENT )
-                {
-                    state_int = 500;
-                    state = statemachine::beep;
-                }
-
                 // Write Message to "message.htm" in SPIFFS
                 f.print ( &msg[4] );
             }
@@ -1662,12 +1425,6 @@ void execCommand ( AsyncWebSocketClient *client, char *msg )
             {
                 rrsession = v;
                 rrtotal = v;
-
-                if ( !SILENT )
-                {
-                    state_int = 500;
-                    state = statemachine::beep;
-                }
 
                 eepromSave();
             }
