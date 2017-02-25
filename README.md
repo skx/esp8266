@@ -20,6 +20,11 @@ The [mobile-rr](mobile-rr) project is an access-point & captive portal that pret
 
 * This is __not my project__, but was very interesting to read and cleanup.
 
+## Temperature & Humidity Measurement
+
+This [simple project](d1-temp) records the current temperature & humidity value via a DHT22 sensor, and submits to a local CGI script for recording.
+
+
 ## Weather Station
 
 The [d1-weather-station](d1-weather-station) uses an OLED display to show the current date, time, weather-summary & three-day summary via remote HTTP fetches from wunderground.com.
