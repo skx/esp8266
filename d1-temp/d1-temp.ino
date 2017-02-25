@@ -13,6 +13,7 @@
 #include <ArduinoOTA.h>
 #include <ESP8266HTTPClient.h>
 
+
 //
 // DHT11 / DHT22 sensor interface
 //
@@ -39,6 +40,12 @@
 # define WIFI_SSID "SCOTLAND"
 # define WIFI_PASS "highlander1"
 #endif
+
+
+//
+// If you don't want to use Mosquitto remove this line
+//
+#define PUB_SUB
 
 //
 // The name of this project.
@@ -74,7 +81,19 @@
 #define SERVER_PORT    80
 #define SERVER_SCRIPT  "/cgi-bin/temp.cgi"
 
+#ifdef PUB_SUB
+# include "PubSubClient.h"
+const char* mqtt_server = "192.168.10.64";
+WiFiClient espClient;
+PubSubClient client(espClient);
+#endif
 
+
+//
+// Measure the temperature + humidity.
+//
+// Post to remote CGI-script AND publish in MQ.
+//
 void measureDHT()
 {
 
@@ -105,6 +124,11 @@ void measureDHT()
         http.addHeader("Content-Type", "application/json");
         http.POST(payload);
         http.end();
+
+#ifdef PUB_SUB
+        // Publish
+        client.publish("temperature", payload.c_str());
+#endif
 
         return;
 
@@ -248,7 +272,13 @@ void setup()
     //
     ArduinoOTA.begin();
 
-
+    //
+    // Setup our pub-sub connection.
+    //
+#ifdef PUB_SUB
+    client.setServer(mqtt_server, 1883);
+    client.setCallback(callback);
+#endif
 }
 
 
@@ -259,6 +289,78 @@ void setup()
 //
 void loop()
 {
-    measureDHT();
-    delay(1000 * 60);
+    static long last_read = 0;
+
+#ifdef PUB_SUB
+
+    if (!client.connected())
+        reconnect();
+
+    client.loop();
+#endif
+
+    // Get the current time.
+    long now = millis();
+
+    // If we've not updated, or it was >60 seconds, then update
+    if ((last_read == 0) || (abs(now - last_read) > 60 * 1000))
+    {
+
+        measureDHT();
+        last_read = now;
+    }
+
+}
+
+
+
+void callback(char* topic, byte* payload, unsigned int length)
+{
+#ifdef PUB_SUB
+    Serial.print("Message arrived [Topic:");
+    Serial.print(topic);
+    Serial.print("] ");
+
+    for (int i = 0; i < length; i++)
+    {
+        Serial.print((char)payload[i]);
+    }
+
+    Serial.println();
+#endif
+}
+
+
+//
+// Reconnect to the pub-sub-server, if we're dropped.
+//
+void reconnect()
+{
+#ifdef PUB_SUB
+
+    // Loop until we're reconnected
+    while (!client.connected())
+    {
+        Serial.print("Attempting MQTT connection...");
+
+        // Attempt to connect
+        if (client.connect("ESP8266Client"))
+        {
+            Serial.println("connected");
+            // Once connected, publish an announcement...
+            // client.publish("temperature", "hello world");
+            // ... and resubscribe
+            client.subscribe("inTopic");
+        }
+        else
+        {
+            Serial.print("failed, rc=");
+            Serial.print(client.state());
+            Serial.println(" try again in 5 seconds");
+            // Wait 5 seconds before retrying
+            delay(5000);
+        }
+    }
+
+#endif
 }
