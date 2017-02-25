@@ -47,6 +47,10 @@
 //
 #define PUB_SUB
 
+#ifdef PUB_SUB
+#  include "info.h"
+#endif
+
 //
 // The name of this project.
 //
@@ -188,6 +192,7 @@ void setup()
     //
 #ifdef WIFI_MANAGER
 
+    WiFi.hostname(PROJECT_NAME);
     WiFiManager wifiManager;
     wifiManager.autoConnect(PROJECT_NAME);
 
@@ -346,9 +351,13 @@ void reconnect()
         // Attempt to connect
         if (client.connect("ESP8266Client"))
         {
+            // We've connected
             Serial.println("connected");
+
+            info i;
+
             // Once connected, publish an announcement...
-            // client.publish("temperature", "hello world");
+            client.publish("temperature", i.to_JSON().c_str());
             // ... and resubscribe
             client.subscribe("inTopic");
         }
