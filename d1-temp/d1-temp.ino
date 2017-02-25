@@ -1,3 +1,13 @@
+//
+//   Temperature/Humidity Reporter - https://steve.fi/Hardware/
+//
+//   This program will connect to your WiFi network, serving as
+//  an access-port if no valid credentials are found, then submit
+//  temp/humidity values to a local CGI-script.
+//
+//   Steve
+//   --
+//
 
 #include <ESP8266WiFi.h>
 #include <ArduinoOTA.h>
