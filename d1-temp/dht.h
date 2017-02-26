@@ -1,4 +1,4 @@
-    //
+//
 //    FILE: dht.h
 //  AUTHOR: Rob Tillaart
 // VERSION: 0.1.21
@@ -59,10 +59,22 @@ public:
     int8_t read11(uint8_t pin);
     int8_t read(uint8_t pin);
 
-    inline int8_t read21(uint8_t pin) { return read(pin); };
-    inline int8_t read22(uint8_t pin) { return read(pin); };
-    inline int8_t read33(uint8_t pin) { return read(pin); };
-    inline int8_t read44(uint8_t pin) { return read(pin); };
+    inline int8_t read21(uint8_t pin)
+    {
+        return read(pin);
+    };
+    inline int8_t read22(uint8_t pin)
+    {
+        return read(pin);
+    };
+    inline int8_t read33(uint8_t pin)
+    {
+        return read(pin);
+    };
+    inline int8_t read44(uint8_t pin)
+    {
+        return read(pin);
+    };
 
     double humidity;
     double temperature;

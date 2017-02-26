@@ -26,12 +26,39 @@ class info
 public:
     info() {};
 
+    /*
+     * MAC address.
+     */
     String mac();
+
+    /*
+     * The chip ID
+     */
     String id();
+
+    /*
+     * The current IP address.
+     */
     String ip();
 
+    /*
+     * Size of flash RAM in bytes.
+     */
+    int flash();
+
+    /*
+     * Speed of processor.
+     */
+    int speed();
+
+    /*
+     * The hostname
+     */
     String hostname();
 
+    /*
+     * All information as a JSON array.
+     */
     String to_JSON();
 private:
 };

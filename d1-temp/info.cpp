@@ -33,15 +33,22 @@ String info::ip()
 
 String info::id()
 {
-    static char tmp[10];
-    snprintf(tmp, sizeof(tmp) - 1, "%06X", ESP.getChipId());
-    return (String(tmp));
+//    static char tmp[10];
+//    snprintf(tmp, sizeof(tmp) - 1, "%06X",  ESP.getChipId());
+//    return (String(tmp));
+    return (String(ESP.getChipId(), HEX));
 }
 
 String info::hostname()
 {
     return (String(WiFi.hostname()));
 }
+
+int info::flash()
+{
+    return (ESP.getFlashChipSize());
+}
+
 
 String info::to_JSON()
 {
@@ -54,8 +61,10 @@ String info::to_JSON()
     payload += "\"id\":\"" + id() + "\"";
     payload += ",";
     payload += "\"mac\":\"" + mac() + "\"";
+    payload += ",";
+    payload += "\"flash\":" + String(flash());
     payload += "}";
 
+    Serial.println(payload);
     return (payload);
 }
-
