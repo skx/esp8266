@@ -43,13 +43,15 @@
 
 
 //
-// If you don't want to use Mosquitto remove this line
+// Include the MQQ library, and define our server.
 //
-#define PUB_SUB
+#include "PubSubClient.h"
+#include "info.h"
+const char* mqtt_server = "192.168.10.64";
+WiFiClient espClient;
+PubSubClient client(espClient);
+info board_info;
 
-#ifdef PUB_SUB
-#  include "info.h"
-#endif
 
 //
 // The name of this project.
@@ -77,19 +79,6 @@
 #  define DEBUG_LOG(x) Serial.print(x)
 #else
 #  define DEBUG_LOG(x)
-#endif
-
-
-
-#define SERVER_ADDRESS "192.168.10.64"
-#define SERVER_PORT    80
-#define SERVER_SCRIPT  "/cgi-bin/temp.cgi"
-
-#ifdef PUB_SUB
-# include "PubSubClient.h"
-const char* mqtt_server = "192.168.10.64";
-WiFiClient espClient;
-PubSubClient client(espClient);
 #endif
 
 
@@ -121,19 +110,12 @@ void measureDHT()
         Serial.println();
 
         // Send it away
-        String payload = "{\"temperature\":" + String(DHT.temperature) + ",\"humidity\":" + String(DHT.humidity) + "}";
+        String payload = "{\"temperature\":" + String(DHT.temperature) +
+                         ",\"humidity\":" + String(DHT.humidity) +
+                         ",\"mac\":\"" + board_info.mac() + "\"}";
 
-        HTTPClient http;
-        http.begin(SERVER_ADDRESS, SERVER_PORT, SERVER_SCRIPT);
-        http.addHeader("Content-Type", "application/json");
-        http.POST(payload);
-        http.end();
-
-#ifdef PUB_SUB
         // Publish
         client.publish("temperature", payload.c_str());
-#endif
-
         return;
 
     }
@@ -280,10 +262,8 @@ void setup()
     //
     // Setup our pub-sub connection.
     //
-#ifdef PUB_SUB
     client.setServer(mqtt_server, 1883);
     client.setCallback(callback);
-#endif
 }
 
 
@@ -296,13 +276,16 @@ void loop()
 {
     static long last_read = 0;
 
-#ifdef PUB_SUB
-
+    //
+    // Ensure we're connected to our queue.
+    //
     if (!client.connected())
         reconnect();
 
+    //
+    // Handle queue messages.
+    //
     client.loop();
-#endif
 
     // Get the current time.
     long now = millis();
@@ -318,10 +301,16 @@ void loop()
 }
 
 
-
+//
+// This is called when messages are received.
+//
+// We only subscribe to the `meta`-topic, and we don't do
+// anything with the messages.  It's just a nice example
+// showing how we could if we wanted to.
+//
+//
 void callback(char* topic, byte* payload, unsigned int length)
 {
-#ifdef PUB_SUB
     Serial.print("Message arrived [Topic:");
     Serial.print(topic);
     Serial.print("] ");
@@ -332,7 +321,6 @@ void callback(char* topic, byte* payload, unsigned int length)
     }
 
     Serial.println();
-#endif
 }
 
 
@@ -341,25 +329,26 @@ void callback(char* topic, byte* payload, unsigned int length)
 //
 void reconnect()
 {
-#ifdef PUB_SUB
-
     // Loop until we're reconnected
     while (!client.connected())
     {
         Serial.print("Attempting MQTT connection...");
 
         // Attempt to connect
-        if (client.connect("ESP8266Client"))
+        if (client.connect(PROJECT_NAME))
         {
             // We've connected
             Serial.println("connected");
 
-            info i;
+            //
+            // Dump all our local details to the meta-topic
+            //
+            client.publish("meta", board_info.to_JSON().c_str());
 
-            // Once connected, publish an announcement...
-            client.publish("temperature", i.to_JSON().c_str());
-            // ... and resubscribe
-            client.subscribe("inTopic");
+            //
+            // Subscribe to the `meta`-topic.
+            //
+            client.subscribe("meta");
         }
         else
         {
@@ -371,5 +360,4 @@ void reconnect()
         }
     }
 
-#endif
 }
