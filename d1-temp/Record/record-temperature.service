@@ -1,0 +1,14 @@
+[Unit]
+Description=Temperature-logger
+
+[Service]
+User=skx
+WorkingDirectory=/tmp
+ExecStart=/usr/local/bin/record-temperature
+KillMode=process
+Restart=always
+StartLimitInterval=2
+StartLimitBurst=20
+
+[Install]
+WantedBy=multi-user.target

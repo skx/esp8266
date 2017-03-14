@@ -1,0 +1,109 @@
+#!/usr/bin/perl
+#
+#  Connect to the bus on the local system and record the temperature
+# in an SQLite database.
+#
+#  The readings are stored in /var/cache/temperature/db
+#
+#
+
+use strict;
+use warnings;
+
+use DBI;
+use JSON;
+use Net::MQTT::Simple;
+
+
+
+
+#
+#  Create the database if missing.
+#
+my $db = get_db();
+
+#
+#  Connect to the queue.
+#
+my $mqtt = Net::MQTT::Simple->new("localhost");
+
+#
+#  Watch the queue
+#
+$mqtt->run(
+    "+" => sub {
+        my ( $topic, $message ) = @_;
+        if ( $topic eq "temperature" )
+        {
+            record_temperature($message);
+        }
+        elsif ( $topic eq "meta" )
+        {
+            record_device($message);
+        }
+        else
+        {
+            print "Ignoring topic:$topic -> $message\n";
+        }
+    },
+);
+
+exit(0);
+
+
+
+
+sub get_db
+{
+    #
+    #  Connect
+    #
+    my $filename = "/var/cache/temperature/db";
+    my $dbh =
+      DBI->connect( "dbi:SQLite:dbname=$filename", "", "",
+                    { AutoCommit => 1, RaiseError => 0 } ) or
+      die "Could not open SQLite database: $DBI::errstr";
+    $dbh->{ sqlite_unicode } = 1;
+
+    #
+    #  Create the tables, if these fail that's fine.
+    #
+    $dbh->do(
+        "CREATE TABLE IF NOT EXISTS devices (id INTEGER PRIMARY KEY, hostname TEXT, ip TEXT, mac TEXT)"
+    );
+    $dbh->do(
+        "CREATE TABLE IF NOT EXISTS readings (id INTEGER PRIMARY KEY, temperature TEXT, humidity TEXT, mac TEXT, recorded INTEGER)"
+    );
+
+    return $dbh;
+}
+
+sub record_device
+{
+    my ($msg) = (@_);
+
+    my $json = JSON->new->allow_nonref;
+    my $obj  = $json->decode($msg);
+
+    my $sql =
+      $db->prepare("INSERT INTO devices (hostname,ip,mac) VALUES(?,?,?)");
+    $sql->execute( $obj->{ 'hostname' }, $obj->{ 'ip' }, $obj->{ 'mac' } );
+    $sql->finish();
+
+}
+
+sub record_temperature
+{
+    my ($msg) = (@_);
+    my $json  = JSON->new->allow_nonref;
+    my $obj   = $json->decode($msg);
+
+    my $sql = $db->prepare(
+        "INSERT INTO readings (temperature, humidity, mac, recorded) VALUES(?,?,?,?)"
+    );
+    $sql->execute( $obj->{ 'temperature' },
+                   $obj->{ 'humidity' },
+                   $obj->{ 'mac' }, time() );
+    $sql->finish();
+
+}
