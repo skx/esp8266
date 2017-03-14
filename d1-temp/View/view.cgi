@@ -14,65 +14,156 @@
 use strict;
 use warnings;
 
+use CGI;
 use DBI;
 use POSIX qw(strftime);
 use HTML::Template;
 
 print "Content-Type: text/html\n\n";
 
+#
+#  Get access to the device we're viewing
+#
+my $cgi = new CGI;
+my $dev = $cgi->param("device");
 
 #
-#  Load + Create the template
+#  Mapping
 #
-my $template = "";
-while( my $line = <DATA> )
+my %NAMES;
+$NAMES{ 'A0:20:A6:02:86:3F' } = "Balcony";
+
+#
+#  If we have a device-name then show it.
+#
+if ($dev)
 {
-   $template .= $line;
+    show_graph($dev);
+}
+else
+{
+    #
+    #  Otherwise let the user choose the available devices.
+    #
+    show_menu();
 }
 
-#
-#  Read the temperature
-#
-my $stats;
-
-#
-#  Connect to the database.
-#
-my $filename = "/var/cache/temperature/db";
-my $dbh =
-  DBI->connect( "dbi:SQLite:dbname=$filename", "", "",
-              { AutoCommit => 1, RaiseError => 0 } ) or
-  die "Could not open SQLite database: $DBI::errstr";
-$dbh->{ sqlite_unicode } = 1;
-
-#
-#  Select readings.
-#
-my $sql = $dbh->prepare( "SELECT temperature,humidity FROM readings ORDER BY recorded DESC LIMIT 50" );
-$sql->execute();
-my $t;
-my $h;
-
-$sql->bind_columns( undef, \$t, \$h );
-my $count = 0;
-while( $sql->fetch() )
-{
-    push( @$stats, { temperature => $t, humidity => $h, count => $count } );
-    $count += 1;
-}
-$sql->finish();
-
-
-#
-# Populate the template, display it & terminate
-#
-my $tmplr = HTML::Template->new( scalarref => \$template,
-				 die_on_bad_params => 0 );
-$tmplr->param( readings => $stats );
-print $tmplr->output();
 exit(0);
 
+
+
+
+#
+#  Connect to the database
+#
+sub db_connect
+{
+    my $filename = "/var/cache/temperature/db";
+    my $dbh =
+      DBI->connect( "dbi:SQLite:dbname=$filename", "", "",
+                    { AutoCommit => 1, RaiseError => 0 } ) or
+      die "Could not open SQLite database: $DBI::errstr";
+    $dbh->{ sqlite_unicode } = 1;
+
+    return ($dbh);
+}
+
+
+#
+#  Find all the readings
+#
+sub readings
+{
+    my ($mac) = (@_);
+
+    #
+    #  Get the database handle
+    #
+    my $dbh = db_connect();
+
+    #
+    #  The stats we'll populate.
+    #
+    my $stats;
+
+    #
+    #  Select readings.
+    #
+    my $sql = $dbh->prepare(
+        "SELECT temperature,humidity FROM readings WHERE mac=? ORDER BY recorded DESC LIMIT 50"
+    );
+    $sql->execute($mac);
+
+    my $t;
+    my $h;
+
+    $sql->bind_columns( undef, \$t, \$h );
+    my $count = 0;
+    while ( $sql->fetch() )
+    {
+        next unless ( $t && $h );
+        push( @$stats, { temperature => $t, humidity => $h, count => $count } );
+        $count += 1;
+    }
+    $sql->finish();
+
+    return ($stats);
+}
+
+sub load_template
+{
+    my ($file) = (@_);
+
+    my $txt = "";
+
+    my $in_file = 0;
+
+    while ( my $line = <DATA> )
+    {
+        if ( $line =~ /^start: $file/ )
+        {
+            $in_file = 1;
+            next;
+        }
+        else
+        {
+            if ( $line =~ /^end: $file/ )
+            {
+                $in_file = 0;
+            }
+        }
+        $txt .= $line if ($in_file);
+    }
+    return ($txt);
+}
+
+
+sub show_graph
+{
+    my ($mac) = (@_);
+
+    my $txt = load_template("index.html");
+    my $tmplr = HTML::Template->new( scalarref         => \$txt,
+                                     die_on_bad_params => 0 );
+
+    my $readings = readings($mac);
+    $tmplr->param( readings => $readings )      if ($readings);
+    $tmplr->param( name     => $NAMES{ $mac } ) if ( $NAMES{ $mac } );
+    print $tmplr->output();
+}
+
+
+sub show_menu
+{
+    my $txt = load_template("choose.html");
+    my $tmplr = HTML::Template->new( scalarref         => \$txt,
+                                     die_on_bad_params => 0 );
+    print( $tmplr->output() );
+}
+
+
 __DATA__
+start: index.html
 <!DOCTYPE HTML>
 <html>
 <head>
@@ -215,13 +306,27 @@ window.onload = function () {
 temperature();
 humidity();
 }
-                 </script>
-                 <title>Balcony</title>
+  </script>
+<title><!-- tmpl_if name='name' --><!-- tmpl_var name='name' --><!-- tmpl_else -->Unknown Location<!-- /tmpl_if --></title>
 </head>
 <body>
-<center><h1>Balcony</h1></center>
+<center><h1><!-- tmpl_if name='name' --><!-- tmpl_var name='name' --><!-- tmpl_else -->Unknown Location<!-- /tmpl_if --></h1></center>
 <div id="temperature" style="height: 300px; width: 80%; margin-left:10%"></div>
 <p>&nbsp;</p>
 <div id="humidity" style="height: 300px; width: 80%; margin-left:10%"></div>
 </body>
 </html>
+end: index.html
+start: choose.html
+<!DOCTYPE HTML>
+<html>
+<head>
+<title>Choose Location</title>
+</head>
+<body>
+<center><h1>Choose Location</h1></center>
+<p>&nbsp;</p>
+<p><a href="?device=A0:20:A6:02:86:3F">Balcony</a></p>
+</body>
+</html>
+end: choose.html
