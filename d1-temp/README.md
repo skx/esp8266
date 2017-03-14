@@ -22,3 +22,11 @@ to deploy this yourself.
 ## Wiring
 
 The DHT22 is wired to pin D2.
+
+# Extras
+
+There is a simple Perl script included in `Record/` which will log
+the received temperature/humidity in an SQLite database.
+
+That can be viewed via the `View/view.cgi` CGI-script to present
+graphs.
