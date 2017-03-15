@@ -90,20 +90,19 @@ sub readings
     #  Select readings.
     #
     my $sql = $dbh->prepare(
-        "SELECT temperature,humidity FROM readings WHERE mac=? ORDER BY recorded DESC LIMIT 50"
+        "SELECT temperature,humidity,recorded FROM readings WHERE mac=? ORDER BY recorded DESC LIMIT 50"
     );
     $sql->execute($mac);
 
     my $t;
     my $h;
+    my $a;
+    $sql->bind_columns( undef, \$t, \$h, \$a );
 
-    $sql->bind_columns( undef, \$t, \$h );
-    my $count = 0;
     while ( $sql->fetch() )
     {
         next unless ( $t && $h );
-        push( @$stats, { temperature => $t, humidity => $h, count => $count } );
-        $count += 1;
+        push( @$stats, { temperature => $t, humidity => $h, time => $a } );
     }
     $sql->finish();
 
@@ -148,7 +147,7 @@ sub show_graph
 
     my $readings = readings($mac);
     $tmplr->param( readings => $readings )      if ($readings);
-    $tmplr->param( name     => $NAMES{ $mac } ) if ( $NAMES{ $mac } );
+    $tmplr->param( name     => $NAMES{ $mac } ? $NAMES{$mac} : $mac );
     print $tmplr->output();
 }
 
@@ -210,7 +209,7 @@ function temperature() {
 				dataPoints: [
 
 <!-- tmpl_loop name='readings' -->
-				{ x: <!-- tmpl_var name='count' -->, y: <!-- tmpl_var name='temperature' --> },
+				{ x:  new Date( 1000 * <!-- tmpl_var name='time' -->), y: <!-- tmpl_var name='temperature' --> },
 
 <!-- /tmpl_loop -->
 				]
@@ -276,7 +275,7 @@ function humidity() {
 				dataPoints: [
 
 <!-- tmpl_loop name='readings' -->
-				{ x: <!-- tmpl_var name='count' -->, y: <!-- tmpl_var name='humidity' --> },
+				{ x:  new Date( 1000 * <!-- tmpl_var name='time' -->), y: <!-- tmpl_var name='humidity' --> },
 
 <!-- /tmpl_loop -->
 				]
