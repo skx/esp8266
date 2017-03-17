@@ -1,11 +1,16 @@
 #!/usr/bin/perl
 #
-#  Simple visualisation from an SQLite database.
+#  Simple visualisation from an SQLite database containing temperature
+# and humidity for a small number of devices.
 #
-#  TODO:
-#   drop-down with different devices.
-#   mapping from MAC -> location.
+#  Configuration:
 #
+#    Edit the `NAMES` hash to include your devices.
+#
+#    Check the path of the SQLite database.
+#
+# Steve
+# --
 #
 
 
@@ -87,10 +92,15 @@ sub readings
     my $stats;
 
     #
+    #  The number of readings to show.
+    #
+    my $max = $cgi->param("count") || 50;
+
+    #
     #  Select readings.
     #
     my $sql = $dbh->prepare(
-        "SELECT temperature,humidity,recorded FROM readings WHERE mac=? ORDER BY recorded DESC LIMIT 50"
+        "SELECT temperature,humidity,recorded FROM readings WHERE mac=? ORDER BY recorded DESC LIMIT $max"
     );
     $sql->execute($mac);
 
@@ -146,8 +156,9 @@ sub show_graph
                                      die_on_bad_params => 0 );
 
     my $readings = readings($mac);
-    $tmplr->param( readings => $readings )      if ($readings);
-    $tmplr->param( name     => $NAMES{ $mac } ? $NAMES{$mac} : $mac );
+    $tmplr->param( readings => $readings ) if ($readings);
+    $tmplr->param( name => $NAMES{ $mac } ? $NAMES{ $mac } : $mac );
+    $tmplr->param( mac => $mac );
     print $tmplr->output();
 }
 
@@ -157,6 +168,13 @@ sub show_menu
     my $txt = load_template("choose.html");
     my $tmplr = HTML::Template->new( scalarref         => \$txt,
                                      die_on_bad_params => 0 );
+
+    my $devices;
+    foreach my $key ( sort keys %NAMES )
+    {
+        push( @$devices, { name => $NAMES{ $key }, mac => $key } );
+    }
+    $tmplr->param( devices => $devices ) if ($devices);
     print( $tmplr->output() );
 }
 
@@ -310,6 +328,14 @@ humidity();
 </head>
 <body>
 <center><h1><!-- tmpl_if name='name' --><!-- tmpl_var name='name' --><!-- tmpl_else -->Unknown Location<!-- /tmpl_if --></h1></center>
+<blockquote>
+<p>Show
+<a href="view.cgi?device=<!-- tmpl_var name='mac' -->;count=50">50</a>, 
+<a href="view.cgi?device=<!-- tmpl_var name='mac' -->;count=100">100</a>, 
+<a href="view.cgi?device=<!-- tmpl_var name='mac' -->;count=150">150</a>, or
+<a href="view.cgi?device=<!-- tmpl_var name='mac' -->;count=250">250</a>
+readings.  
+</p>
 <div id="temperature" style="height: 300px; width: 80%; margin-left:10%"></div>
 <p>&nbsp;</p>
 <div id="humidity" style="height: 300px; width: 80%; margin-left:10%"></div>
@@ -325,7 +351,13 @@ start: choose.html
 <body>
 <center><h1>Choose Location</h1></center>
 <p>&nbsp;</p>
-<p><a href="?device=A0:20:A6:02:86:3F">Balcony</a></p>
+<!-- tmpl_if name='devices' -->
+<!-- tmpl_loop name='devices' -->
+<p><a href="?device=<!-- tmpl_var name='mac' -->"><!-- tmpl_var name='name' --></a></p>
+<!-- /tmpl_loop -->
+<!-- tmpl_else -->
+<p>No devices are known; edit this script to setup the MAC-table.</p>
+<!-- /tmpl_if -->
 </body>
 </html>
 end: choose.html
