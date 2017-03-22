@@ -101,7 +101,7 @@ Adafruit_8x8matrix matrix = Adafruit_8x8matrix();
 void light_leds(char *txt)
 {
     DEBUG_LOG("INPUT:");
-    DEBUG_LOG( txt );
+    DEBUG_LOG(txt);
     DEBUG_LOG("\n");
 
     uint8_t  pattern[8];
@@ -119,18 +119,18 @@ void light_leds(char *txt)
     // Look for the ","
     char *pch = strtok(data, ",");
 
-    while ( (pch != NULL) && ( line < 8 ) )
+    while ((pch != NULL) && (line < 8))
     {
-      DEBUG_LOG(" Line ");
-      DEBUG_LOG(line);
-      DEBUG_LOG(" is ");
-      DEBUG_LOG(pch);
-      DEBUG_LOG("\n");
+        DEBUG_LOG(" Line ");
+        DEBUG_LOG(line);
+        DEBUG_LOG(" is ");
+        DEBUG_LOG(pch);
+        DEBUG_LOG("\n");
 
-      pattern[line] = atoi(pch);
+        pattern[line] = atoi(pch);
 
-      line += 1;
-      pch = strtok(NULL, ",");
+        line += 1;
+        pch = strtok(NULL, ",");
     }
 
     // Free the copy of the data
