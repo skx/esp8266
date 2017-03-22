@@ -99,7 +99,11 @@ Adafruit_8x8matrix matrix = Adafruit_8x8matrix();
 //
 void light_leds(char *txt)
 {
-    uint8_t  pattern[9];
+    DEBUG_LOG("INPUT:");
+    DEBUG_LOG( txt );
+    DEBUG_LOG("\n");
+
+    uint8_t  pattern[8];
 
     // Ensure the pattern is OK
     for (int i = 0; i < 8; i++)
@@ -114,23 +118,18 @@ void light_leds(char *txt)
     // Look for the ","
     char *pch = strtok(data, ",");
 
-    while (pch != NULL)
+    while ( (pch != NULL) && ( line < 8 ) )
     {
-        // Show what we've found
-        if (line < 8)
-        {
-            DEBUG_LOG("Line ");
-            DEBUG_LOG(line);
-            DEBUG_LOG(" is ");
-            DEBUG_LOG(pch);
-            DEBUG_LOG("\n");
+      DEBUG_LOG(" Line ");
+      DEBUG_LOG(line);
+      DEBUG_LOG(" is ");
+      DEBUG_LOG(pch);
+      DEBUG_LOG("\n");
 
-            pattern[line] = atoi(pch);
-        }
+      pattern[line] = atoi(pch);
 
-        line += 1;
-        pch = strtok(NULL, ",");
-
+      line += 1;
+      pch = strtok(NULL, ",");
     }
 
     // Free the copy of the data
@@ -140,7 +139,6 @@ void light_leds(char *txt)
     matrix.clear();
     matrix.drawBitmap(0, 0, pattern, 8, 8, LED_ON);
     matrix.writeDisplay();
-
 
 }
 
@@ -244,7 +242,8 @@ void setup()
     // Setup our LED Matrix.
     //
     matrix.begin(0x70);
-    matrix.setBrightness(5);
+    matrix.setBrightness(9);
+    matrix.clear();
 
 }
 
@@ -299,12 +298,11 @@ void loop()
             client.println("");
             client.println("OK");
         }
-
-        //
-        // Serve our Application.
-        //
-        if (request.indexOf("/app.js") != -1)
+        else if (request.indexOf("/app.js") != -1)
         {
+            //
+            // Serve our Application.
+            //
             client.println("HTTP/1.1 200 OK");
             client.println("Content-Type: application/javascript");
             client.println("");
@@ -326,7 +324,6 @@ void loop()
         }
         else
         {
-
             //  Serve /index.html
             client.println("HTTP/1.1 200 OK");
             client.println("Content-Type: text/html");
