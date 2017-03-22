@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Pixel Editor</title>
+  <style>
+   html{
+     background: #ccc;
+   }
+   #canvasContainer{
+     text-align:center;
+   }
+   canvas{
+     background: #fff;
+   }
+   #data {
+     display:none;
+   }
+  </style>
+</head>
+<body>
+  <center><h2>ESP8266 Pixel-Editor</h2></center>
+  <table width="100%">
+    <tr>
+      <td valign="top" width="80"%>
+        <div id="canvasContainer">
+	  <canvas id="paintMe" width="180" height="180">Canvas tag not supported</canvas>
+        </div>
+      </td>
+      <td valign="top" width="20%">
+        <p>Presets:</p>
+        <ul>
+          <li><a href="#" onClick="iCanvas.cross(); return false;">Cross</a></li>
+          <li><a href="#" onClick="iCanvas.heart(); return false;">Heart</a></li>
+        </ul>
+      </td>
+    </tr>
+  </table>
+  <div id="data">
+  </div>
+  <script src="http://code.jquery.com/jquery-1.11.2.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
