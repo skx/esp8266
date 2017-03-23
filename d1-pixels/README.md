@@ -6,6 +6,19 @@ upon an 8x8 LED matrix.
 The WeMos Mini D1 drives the matrix, and you can control what is displayed
 upon it wirelessly
 
+# Compilation & Installation
+
+The main script [d1-pixels.ino](d1-pixels.ino) can be compiled and uploaded
+to your device as usual, but you'll also need to upload the contents of
+the `data/` subdirectory to your device's flash.
+
+Install the [arduino-esp8266fs-plugin](https://github.com/esp8266/arduino-esp8266fs-plugin) according to the instructions there.  Now from the Arduino IDE you can choose the menu item:
+
+* `Tools | ESP8266 Sketch Data Upload`
+
+This will upload the contents of the `data/` directory to your device.
+
+
 # How it Works
 
 The ESP8266 device will boot up, and receive an IP address.
