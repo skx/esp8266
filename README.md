@@ -14,6 +14,14 @@ The [d1-ntp-clock](d1-ntp-clock) does exactly what the name implies, operates as
 The project is documented [on the project homepage](https://steve.fi/Hardware/d1-ntp-clock/).
 
 
+## Pixel Editor
+
+The [d1-pixels](d1-pixels) project presents a simple pixel-editor which can be used to update an 8x8 LED Matrix in real-time, via your browser.
+
+The project is documented [on the project homepage](https://steve.fi/Hardware/d1-pixels/).
+
+
+
 ## Rick-Roll Access Point
 
 The [mobile-rr](mobile-rr) project is an access-point & captive portal that pretends to offer free WiFi, but instead [rickrolls](https://en.wikipedia.org/wiki/Rickrolling) visitors.
