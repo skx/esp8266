@@ -736,6 +736,11 @@ time_t getNtpTime()
             now += (TIME_ZONE * SECS_PER_HOUR);
 #endif
 
+            //
+            // Handle British Summer Time
+            //
+            now += BSTOffset();
+
             return (now);
         }
 
@@ -745,6 +750,31 @@ time_t getNtpTime()
     DEBUG_LOG("NTP-sync failed\n");
     return 0;
 }
+
+
+//
+// If we're in British Summer Time return the extra offset
+// to add to the time (i.e. one hour.).
+//
+int BSTOffset()
+{
+// last sunday of march
+    int beginDSTDate = (31 - (5 * year() / 4 + 4) % 7);
+    int beginDSTMonth = 3;
+
+//last sunday of october
+    int endDSTDate = (31 - (5 * year() / 4 + 1) % 7);
+    int endDSTMonth = 10;
+
+// DST is valid as:
+    if (((month() > beginDSTMonth) && (month() < endDSTMonth))
+            || ((month() == beginDSTMonth) && (day() >= beginDSTDate))
+            || ((month() == endDSTMonth) && (day() <= endDSTDate)))
+        return 3600;
+    else
+        return 0;
+}
+
 
 // send an NTP request to the time server at the given address
 void sendNTPpacket(IPAddress &address)
