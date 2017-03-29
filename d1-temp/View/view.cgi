@@ -37,6 +37,7 @@ my $dev = $cgi->param("device");
 #
 my %NAMES;
 $NAMES{ 'A0:20:A6:02:86:3F' } = "Balcony";
+$NAMES{ 'A0:20:A6:15:4F:A5' } = "Bathroom";
 
 #
 #  If we have a device-name then show it.
@@ -330,11 +331,11 @@ humidity();
 <center><h1><!-- tmpl_if name='name' --><!-- tmpl_var name='name' --><!-- tmpl_else -->Unknown Location<!-- /tmpl_if --></h1></center>
 <blockquote>
 <p>Show
-<a href="view.cgi?device=<!-- tmpl_var name='mac' -->;count=50">50</a>, 
-<a href="view.cgi?device=<!-- tmpl_var name='mac' -->;count=100">100</a>, 
+<a href="view.cgi?device=<!-- tmpl_var name='mac' -->;count=50">50</a>,
+<a href="view.cgi?device=<!-- tmpl_var name='mac' -->;count=100">100</a>,
 <a href="view.cgi?device=<!-- tmpl_var name='mac' -->;count=150">150</a>, or
 <a href="view.cgi?device=<!-- tmpl_var name='mac' -->;count=250">250</a>
-readings.  
+readings.
 </p>
 <div id="temperature" style="height: 300px; width: 80%; margin-left:10%"></div>
 <p>&nbsp;</p>
