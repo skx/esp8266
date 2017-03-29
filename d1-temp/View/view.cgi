@@ -36,7 +36,7 @@ my $dev = $cgi->param("device");
 #  Mapping
 #
 my %NAMES;
-$NAMES{ 'A0:20:A6:02:86:3F' } = "Balcony";
+$NAMES{ 'A0:20:A6:1A:1F:DC' } = "Balcony";
 $NAMES{ 'A0:20:A6:15:4F:A5' } = "Bathroom";
 
 #
