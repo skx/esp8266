@@ -22,7 +22,7 @@
 //
 // The pin we're connecting the sensor to
 //
-#define DHTPIN D2
+#define DHTPIN D4
 
 //
 // Use the user-friendly WiFI library?
@@ -334,8 +334,11 @@ void reconnect()
     {
         Serial.print("Attempting MQTT connection...");
 
+        String id = PROJECT_NAME;
+        id += board_info.mac();
+         
         // Attempt to connect
-        if (client.connect(PROJECT_NAME))
+        if (client.connect(id.c_str()))
         {
             // We've connected
             Serial.println("connected");
