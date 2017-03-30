@@ -21,7 +21,7 @@ to deploy this yourself.
 
 ## Wiring
 
-The DHT22 is wired to pin D2.
+The DHT22 is wired to pin D4, which is hardwired as I use a simple "shield".
 
 # Extras
 
