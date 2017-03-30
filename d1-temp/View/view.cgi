@@ -27,13 +27,13 @@ use HTML::Template;
 print "Content-Type: text/html\n\n";
 
 #
-#  Get access to the device we're viewing
+#  Get access to the device we're viewing, if any.
 #
 my $cgi = new CGI;
 my $dev = $cgi->param("device");
 
 #
-#  Mapping
+#  Mapping MAC addresses human names.
 #
 my %NAMES;
 $NAMES{ 'A0:20:A6:1A:1F:DC' } = "Balcony";
@@ -49,7 +49,7 @@ if ($dev)
 else
 {
     #
-    #  Otherwise let the user choose the available devices.
+    #  Otherwise let the user choose from the available devices.
     #
     show_menu();
 }
@@ -76,11 +76,11 @@ sub db_connect
 
 
 #
-#  Find all the readings
+# Return $count readings from the device with the specified MAC-address.
 #
 sub readings
 {
-    my ($mac) = (@_);
+    my ( $mac, $count ) = (@_);
 
     #
     #  Get the database handle
@@ -93,15 +93,10 @@ sub readings
     my $stats;
 
     #
-    #  The number of readings to show.
-    #
-    my $max = $cgi->param("count") || 50;
-
-    #
     #  Select readings.
     #
     my $sql = $dbh->prepare(
-        "SELECT temperature,humidity,recorded FROM readings WHERE mac=? ORDER BY recorded DESC LIMIT $max"
+        "SELECT temperature,humidity,recorded FROM readings WHERE mac=? ORDER BY recorded DESC LIMIT $count"
     );
     $sql->execute($mac);
 
@@ -120,6 +115,10 @@ sub readings
     return ($stats);
 }
 
+
+#
+# Load a (HTML::Template) template-file from our __DATA__ area.
+#
 sub load_template
 {
     my ($file) = (@_);
@@ -148,15 +147,24 @@ sub load_template
 }
 
 
+#
+# Show a graph of temp/humidity from the given MAC address.
+#
 sub show_graph
 {
     my ($mac) = (@_);
+
+    #
+    #  The number of readings to show.
+    #
+    my $count = $cgi->param("count") || 50;
+
 
     my $txt = load_template("index.html");
     my $tmplr = HTML::Template->new( scalarref         => \$txt,
                                      die_on_bad_params => 0 );
 
-    my $readings = readings($mac);
+    my $readings = readings( $mac, $count );
     $tmplr->param( readings => $readings ) if ($readings);
     $tmplr->param( name => $NAMES{ $mac } ? $NAMES{ $mac } : $mac );
     $tmplr->param( mac => $mac );
@@ -164,22 +172,51 @@ sub show_graph
 }
 
 
+#
+# Show a menu of all listed devices.
+#
 sub show_menu
 {
+
+    #
+    #  Get the database handle
+    #
+    my $dbh = db_connect();
+
+    #
+    #  The devices we know about.
+    #
+    my $devices;
+
+    #
+    #  Select the devices
+    #
+    my $sql = $dbh->prepare("SELECT DISTINCT(mac) FROM devices");
+    $sql->execute();
+
+    my $mac;
+
+    $sql->bind_columns( undef, \$mac );
+    while ( $sql->fetch() )
+    {
+        my $name = $NAMES{ $mac } || $mac;
+        push( @$devices, { name => $name, mac => $mac } );
+    }
+    $sql->finish();
+    $dbh->disconnect();
+
     my $txt = load_template("choose.html");
     my $tmplr = HTML::Template->new( scalarref         => \$txt,
                                      die_on_bad_params => 0 );
 
-    my $devices;
-    foreach my $key ( sort keys %NAMES )
-    {
-        push( @$devices, { name => $NAMES{ $key }, mac => $key } );
-    }
     $tmplr->param( devices => $devices ) if ($devices);
     print( $tmplr->output() );
 }
 
 
+#
+# HTML::Template-templates follow now.
+#
 __DATA__
 start: index.html
 <!DOCTYPE HTML>
@@ -328,7 +365,7 @@ humidity();
 <title><!-- tmpl_if name='name' --><!-- tmpl_var name='name' --><!-- tmpl_else -->Unknown Location<!-- /tmpl_if --></title>
 </head>
 <body>
-<center><h1><!-- tmpl_if name='name' --><!-- tmpl_var name='name' --><!-- tmpl_else -->Unknown Location<!-- /tmpl_if --></h1></center>
+<center><h1><a href="view.cgi">Home</a> | <!-- tmpl_if name='name' --><!-- tmpl_var name='name' --><!-- tmpl_else -->Unknown Location<!-- /tmpl_if --></h1></center>
 <blockquote>
 <p>Show
 <a href="view.cgi?device=<!-- tmpl_var name='mac' -->;count=50">50</a>,
@@ -352,6 +389,7 @@ start: choose.html
 <body>
 <center><h1>Choose Location</h1></center>
 <p>&nbsp;</p>
+<table width="100%"><tr><td width="20%"></td><td width="60%">
 <!-- tmpl_if name='devices' -->
 <!-- tmpl_loop name='devices' -->
 <p><a href="?device=<!-- tmpl_var name='mac' -->"><!-- tmpl_var name='name' --></a></p>
@@ -359,6 +397,7 @@ start: choose.html
 <!-- tmpl_else -->
 <p>No devices are known; edit this script to setup the MAC-table.</p>
 <!-- /tmpl_if -->
+</td><td width="20%"></td></tr></table>
 </body>
 </html>
 end: choose.html
