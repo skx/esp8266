@@ -30,8 +30,11 @@
 //
 //
 //   Finally there is a simple HTTP-server which is running on
-//   port 80, which shows the same information, and allows the
-//   control of the backlight and the stop-ID to be changed.
+//   port 80, which shows the same information.
+//
+//   The built-in HTTP-server can also be used to change the time-zone
+//  offset and the tram-stop.  Both of these values will be persisted
+//  to flash memory, so that changes will survive reboots.
 //
 //   This can be accessed via:
 //
@@ -74,11 +77,6 @@
 // The default tram stop to monitor.
 //
 #define DEFAULT_TRAM_STOP "1160404"
-
-//
-// The timezone - comment out to stay at GMT.
-//
-#define TIME_ZONE (+3)
 
 //
 // Should we enable debugging (via serial-console output) ?
@@ -125,7 +123,6 @@
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecure.h>
 
-
 //
 // NTP uses UDP.
 //
@@ -146,8 +143,10 @@
 
 
 
-
-
+//
+// Timezone offset from GMT
+//
+int time_zone_offset = 0;
 
 
 //
@@ -245,6 +244,20 @@ void setup()
 
 
     //
+    // Load the time-zone offset, if we can
+    //
+    File tz = SPIFFS.open("/time.zone", "r");
+
+    while (tz.available())
+    {
+        String line = tz.readStringUntil('\n');
+        time_zone_offset = line.toInt();
+    }
+
+    tz.close();
+
+
+    //
     // Did we fail to load the tram-stop?  If so use
     // the default.
     //
@@ -329,7 +342,6 @@ void setup()
     ArduinoOTA.onError([](ota_error_t error)
     {
         lcd.setCursor(0, 0);
-        DEBUG_LOG("OTA Error[%u]: ", error);
 
         if (error == OTA_AUTH_ERROR)
             lcd.print("Auth Failed          ");
@@ -508,6 +520,47 @@ void loop()
 
                 // So we've changed the tram ID we should refresh the date.
                 fetch_tram_times();
+            }
+        }
+
+        // Change the time-zone?
+        if (request.indexOf("/?tz=") != -1)
+        {
+            char *pattern = "/?tz=";
+            char *s = strstr(request.c_str(), pattern);
+
+            if (s != NULL)
+            {
+                // Temporary holder for the timezone - as a string.
+                char tmp[10] = { '\0' };
+
+                // Skip past the pattern.
+                s += strlen(pattern);
+
+                // Add characters until we come to a terminating character.
+                for (int i = 0; i < strlen(s); i++)
+                {
+                    if ((s[i] != ' ') && (s[i] != '&'))
+                        tmp[strlen(tmp)] = s[i];
+                    else
+                        break;
+                }
+
+                // Change the timezone now
+                time_zone_offset = atoi(tmp);
+
+                // Write the updated value to flash
+                File f = SPIFFS.open("/time.zone", "w");
+
+                if (f)
+                {
+                    DEBUG_LOG("Writing to /time.zone: ");
+                    DEBUG_LOG(tmp);
+                    DEBUG_LOG("\n");
+
+                    f.println(tmp);
+                    f.close();
+                }
             }
         }
 
@@ -750,13 +803,15 @@ time_t getNtpTime()
             // Now convert to the real time.
             unsigned long now = secsSince1900 - 2208988800UL;
 
-#ifdef TIME_ZONE
-            DEBUG_LOG("Adjusting time : ");
-            DEBUG_LOG(TIME_ZONE);
-            DEBUG_LOG("\n");
+            if (time_zone_offset != 0)
+            {
 
-            now += (TIME_ZONE * SECS_PER_HOUR);
-#endif
+                DEBUG_LOG("Adjusting time : ");
+                DEBUG_LOG(time_zone_offset);
+                DEBUG_LOG("\n");
+
+                now += (time_zone_offset * SECS_PER_HOUR);
+            }
 
             return (now);
         }
@@ -881,7 +936,25 @@ void serveHTML(WiFiClient client)
     client.println("<div class=\"col-md-4\"></div>");
     client.println("</div>");
     client.println("</div>");
+
     client.println("<p>&nbsp;</p>");
+
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-3\"></div>");
+    client.println("<div class=\"col-md-9\"> <h2>Change Time Zone</h2><p>&nbsp;</p></div>");
+    client.println("</div>");
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("<div class=\"col-md-4\">");
+    client.print("<p>The time zone you're configured is GMT ");
+    client.print(time_zone_offset);
+    client.print(" but you can change that:</p>");
+    client.print("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"tz\" value=\"");
+    client.print(time_zone_offset);
+    client.println("\"><input type=\"submit\" value=\"Update\"></form>");
+    client.println("</div>");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("</div>");
     client.println("</body>");
     client.println("</html>");
 
