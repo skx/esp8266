@@ -45,6 +45,11 @@
 //
 //   https://steve.fi/Helsinki/Tram-API/
 //
+//
+//  INPUT Button
+//    Added a button between D0 & D8.  This is used to toggle the state of the backlight
+//
+//
 //   Steve
 //   --
 //
@@ -359,10 +364,27 @@ void setup()
     // Ensure the OTA process is running & listening.
     //
     ArduinoOTA.begin();
+
+    //
+    // We have a switch between D8 & 3.3V.
+    //
+    pinMode(D8, INPUT_PULLUP);
+    pinMode(D0, OUTPUT);
+    digitalWrite(D0, HIGH);
 }
 
 
 
+
+int buttonState = LOW;
+
+// the current and previous readings from the input pin
+int thisButtonState = LOW;
+int lastButtonState = LOW;
+
+// time is measured in milliseconds and will quickly exceed limitations of an integer, so we use a long for these two
+unsigned long lastDebounceTime = 0;  // the time the button state last switched
+unsigned long debounceDelay = 10;    // the state must remain the same for this many millis to register the button press
 
 
 //
@@ -373,6 +395,43 @@ void setup()
 //
 void loop()
 {
+    //
+    // This button is optional, but if installed (between D0 & D8) it
+    // will toggle the state of the backlight.
+    //
+    thisButtonState = digitalRead(D8);
+
+    // if the current state does not match the previous state
+    // the button was just pressed/released, or is transition noise
+    if (thisButtonState != lastButtonState)
+    {
+        // reset the timer
+        lastDebounceTime = millis();
+    }
+
+    // once delay millis have elapsed, if the state remains the same, register the press
+    if ((millis() - lastDebounceTime) > debounceDelay)
+    {
+
+        // if the button state has changed
+        if (thisButtonState != buttonState)
+        {
+            buttonState = thisButtonState;
+
+            // only toggle the LED if the buttonState has switched from LOW to HIGH
+            if (buttonState == HIGH)
+            {
+              // Invert the backlight flag
+              backlight = !backlight;
+
+              // Make it take effect.
+              lcd.setBacklight(backlight);
+            }
+        }
+    }
+
+    // persist for next loop iteration
+    lastButtonState = thisButtonState;
 
     // Keep the previous time, to avoid needless re-draws
     static char prev_time[NUM_COLS] = { '\0'};
@@ -410,7 +469,7 @@ void loop()
         fetch_tram_times();
 
 
-    //
+
     // Now draw all the rows - correctly doing this
     // after the previous step might have updated
     // the display.
@@ -445,10 +504,6 @@ void loop()
         }
 
         strcpy(prev_time, screen[0]);
-    }
-    else
-    {
-        DEBUG_LOG("Skipped update of LCD\n");
     }
 
     //
@@ -561,6 +616,9 @@ void loop()
                     f.println(tmp);
                     f.close();
                 }
+
+                // Force a resync of the timezone, via a resync of the time.
+                setSyncProvider(getNtpTime);
             }
         }
 
@@ -572,7 +630,7 @@ void loop()
     //
     // Now sleep, to avoid updating our LCD too often.
     //
-    delay(250);
+    delay(25);
 }
 
 
@@ -737,6 +795,10 @@ String fetchURL(const char *host, const char *path)
 //
 void fetch_tram_times()
 {
+    // Show what we're doing on the last row.
+    lcd.setCursor(0, NUM_ROWS - 1);
+    lcd.print("Refreshing Trams ..");
+
     DEBUG_LOG("Making request for tram details \n");
     DEBUG_LOG("Tram stop is ");
     DEBUG_LOG(tram_stop);
@@ -891,9 +953,9 @@ void serveHTML(WiFiClient client)
     // Now show the calculated tram-times
     for (int i = 0; i < NUM_ROWS; i++)
     {
-        client.print("<tr><td>");
+        client.print("<tr><td><code>");
         client.print(screen[i]);
-        client.print("</td></tr>");
+        client.print("</code></td></tr>");
     }
 
     client.println("</table>");
