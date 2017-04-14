@@ -421,11 +421,11 @@ void loop()
             // only toggle the LED if the buttonState has switched from LOW to HIGH
             if (buttonState == HIGH)
             {
-              // Invert the backlight flag
-              backlight = !backlight;
+                // Invert the backlight flag
+                backlight = !backlight;
 
-              // Make it take effect.
-              lcd.setBacklight(backlight);
+                // Make it take effect.
+                lcd.setBacklight(backlight);
             }
         }
     }
