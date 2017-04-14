@@ -329,7 +329,7 @@ void setup()
     ArduinoOTA.onError([](ota_error_t error)
     {
         lcd.setCursor(0, 0);
-        Serial.printf("Error[%u]: ", error);
+        DEBUG_LOG("OTA Error[%u]: ", error);
 
         if (error == OTA_AUTH_ERROR)
             lcd.print("Auth Failed          ");
