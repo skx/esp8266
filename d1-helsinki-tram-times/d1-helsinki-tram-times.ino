@@ -70,17 +70,10 @@
 #define TRAM_HOST "steve.fi"
 #define TRAM_PATH "/Helsinki/Tram-API/api.cgi?id="
 
-
 //
-// The tram ID
+// The default tram stop to monitor.
 //
-#define TRAM_STOP "1160404"
-
-//
-// Lasipalatsi - Useful for testing since multiple routes stop there.
-//
-// #define TRAM_STOP "1020444"
-//
+#define DEFAULT_TRAM_STOP "1160404"
 
 //
 // The timezone - comment out to stay at GMT.
@@ -113,6 +106,11 @@
 //
 #include "WiFiManager.h"
 
+//
+// We read/write the tram-stop to flash, along
+// with the timezone offset.
+//
+#include <FS.h>
 
 
 //
@@ -159,6 +157,11 @@ WiFiServer server(80);
 
 
 //
+// The tram stop we're going to display.
+//
+char tram_stop[12] = { '\0' };
+
+//
 // This two-dimensional array holds the text that we're
 // going to display on the LCD.
 //
@@ -188,11 +191,6 @@ static const char ntpServerName[] = "pool.ntp.org";
 
 
 //
-// The tram stop to monitor.
-//
-static char tramID[10] = {'\0' };
-
-//
 // Is the backlight lit?  Defaults to true.
 //
 bool backlight = true;
@@ -206,6 +204,52 @@ void setup()
 {
     // Enable our serial port.
     Serial.begin(115200);
+
+    //
+    // Enable access to the filesystem.
+    //
+    SPIFFS.begin();
+
+    //
+    // Load the tram-stop if we can
+    //
+    File f = SPIFFS.open("/tram.stop", "r");
+
+    while (f.available())
+    {
+
+        //
+        // We'll process the data to make sure we only
+        // use 0-9 in our tram-stop.  This is mostly a
+        // paranoia check to make sure we don't try
+        // to cope with "\r", "\n", etc.
+        //
+        String line = f.readStringUntil('\n');
+        const char *data = line.c_str();
+        int len = strlen(data);
+
+        //
+        // Empty the value.
+        //
+        memset(tram_stop, '\0', sizeof(tram_stop));
+
+        // Append suitable characters.
+        for (int i = 0; i < len; i++)
+        {
+            if (data[i] >= '0' && data[i] <= '9')
+                tram_stop[strlen(tram_stop)] = data[i];
+        }
+    }
+
+    f.close();
+
+
+    //
+    // Did we fail to load the tram-stop?  If so use
+    // the default.
+    //
+    if (strlen(tram_stop) == 0)
+        strcpy(tram_stop, DEFAULT_TRAM_STOP);
 
     // initialize the LCD
     lcd.begin();
@@ -232,11 +276,6 @@ void setup()
 
     // Allow this to be visible.
     delay(2500);
-
-    //
-    // Configure our tram stop
-    //
-    strcpy(tramID, TRAM_STOP);
 
     //
     // Ensure our UDP port is listening for receiving NTP-replies
@@ -440,7 +479,7 @@ void loop()
             {
 
                 // Empty the tram ID
-                memset(tramID, '\0', sizeof(tramID));
+                memset(tram_stop, '\0', sizeof(tram_stop));
 
                 // Skip past the pattern.
                 s += strlen(pattern);
@@ -449,9 +488,22 @@ void loop()
                 for (int i = 0; i < strlen(s); i++)
                 {
                     if ((s[i] != ' ') && (s[i] != '&'))
-                        tramID[strlen(tramID)] = s[i];
+                        tram_stop[strlen(tram_stop)] = s[i];
                     else
                         break;
+                }
+
+                // Write the updated value to flash
+                File f = SPIFFS.open("/tram.stop", "w");
+
+                if (f)
+                {
+                    DEBUG_LOG("Writing to /tram.stop: ");
+                    DEBUG_LOG(tram_stop);
+                    DEBUG_LOG("\n");
+
+                    f.println(tram_stop);
+                    f.close();
                 }
 
                 // So we've changed the tram ID we should refresh the date.
@@ -577,7 +629,7 @@ String fetchURL(const char *host, const char *path)
         now = millis();
 
         // checking the timeout
-        while (millis() - now < 1500)
+        while (millis() - now < 3000)
         {
             while (client.available())
             {
@@ -634,11 +686,11 @@ void fetch_tram_times()
 {
     DEBUG_LOG("Making request for tram details \n");
     DEBUG_LOG("Tram stop is ");
-    DEBUG_LOG(tramID);
+    DEBUG_LOG(tram_stop);
     DEBUG_LOG("\n");
 
     char url[128];
-    snprintf(url, sizeof(url) - 1, "%s%s", TRAM_PATH, tramID);
+    snprintf(url, sizeof(url) - 1, "%s%s", TRAM_PATH, tram_stop);
 
     String body = fetchURL(TRAM_HOST, url);
     update_tram_times(body.c_str());
@@ -818,12 +870,12 @@ void serveHTML(WiFiClient client)
     client.println("<div class=\"col-md-4\"></div>");
     client.println("<div class=\"col-md-4\">");
     client.print("<p>You are currently monitoring the tram-stop with ID <a href=\"https://beta.reittiopas.fi/pysakit/HSL:");
-    client.print(tramID);
+    client.print(tram_stop);
     client.print("\">");
-    client.print(tramID);
+    client.print(tram_stop);
     client.print("</a>, but you can change that:</p>");
     client.println("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"stop\" value=\"");
-    client.print(tramID);
+    client.print(tram_stop);
     client.println("\"><input type=\"submit\" value=\"Update\"></form>");
     client.println("</div>");
     client.println("<div class=\"col-md-4\"></div>");
