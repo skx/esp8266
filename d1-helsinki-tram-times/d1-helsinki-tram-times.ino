@@ -59,21 +59,6 @@
 
 
 //
-// Use the user-friendly WiFI library?
-//
-// If you don't want to use this then comment out the following line:
-//
-#define WIFI_MANAGER
-
-//
-//  Otherwise define a SSID / Password
-//
-#ifndef WIFI_MANAGER
-# define WIFI_SSID "SCOTLAND"
-# define WIFI_PASS "highlander1"
-#endif
-
-//
 // The number of rows/columns of our display.
 //
 #define NUM_ROWS 4
@@ -100,7 +85,7 @@
 //
 // The timezone - comment out to stay at GMT.
 //
-#define TIME_ZONE (+2)
+#define TIME_ZONE (+3)
 
 //
 // Should we enable debugging (via serial-console output) ?
@@ -126,9 +111,7 @@
 //
 //   https://github.com/tzapu/WiFiManager
 //
-#ifdef WIFI_MANAGER
-# include "WiFiManager.h"
-#endif
+#include "WiFiManager.h"
 
 
 
@@ -201,7 +184,7 @@ unsigned int localPort = 2390;
 //
 // The NTP-server we use.
 //
-static const char ntpServerName[] = "time.nist.gov";
+static const char ntpServerName[] = "pool.ntp.org";
 
 
 //
@@ -230,37 +213,14 @@ void setup()
     // Turn on the blacklight
     lcd.setBacklight(true);
 
-#ifdef WIFI_MANAGER
+    lcd.setCursor(0, 0);
+    lcd.print("Booting up ..");
 
+    //
+    // Handle Connection.
+    //
     WiFiManager wifiManager;
     wifiManager.autoConnect(PROJECT_NAME);
-
-#else
-    //
-    // Connect to the WiFi network, and set a sane
-    // hostname so we can ping it by name.
-    //
-    WiFi.mode(WIFI_STA);
-    WiFi.hostname(PROJECT_NAME);
-    WiFi.begin(WIFI_SSID, WIFI_PASS);
-
-
-    //
-    // Show that we're connecting to the WiFi.
-    //
-    lcd.setCursor(0, 0);
-    lcd.print("WiFi connecting");
-    lcd.setCursor(0, 1);
-
-    //
-    // Try to connect to WiFi, constantly.
-    //
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        lcd.print(".");
-        DEBUG_LOG(".");
-        delay(500);
-    }
 
     //
     // Now we're connected show the local IP address.
@@ -271,9 +231,7 @@ void setup()
     lcd.print(WiFi.localIP());
 
     // Allow this to be visible.
-    delay(5000);
-#endif
-
+    delay(2500);
 
     //
     // Configure our tram stop
@@ -295,12 +253,11 @@ void setup()
     setSyncProvider(getNtpTime);
     setSyncInterval(300);
 
-
     //
     // Now we can start our HTTP server
     //
     server.begin();
-    DEBUG_LOG("Server started\n");
+    DEBUG_LOG("HTTP-Server started\n");
 
     //
     // The final step is to allow over the air updates
@@ -425,6 +382,15 @@ void loop()
         {
             lcd.setCursor(0, i);
             lcd.print(screen[i]);
+
+            // Padding?
+            int extra = NUM_COLS - strlen(screen[i]);
+
+            while (extra > 0)
+            {
+                lcd.print(" ");
+                extra --;
+            }
         }
 
         strcpy(prev_time, screen[0]);
@@ -688,6 +654,10 @@ time_t getNtpTime()
 {
     IPAddress ntpServerIP;
 
+    // Show what we're doing on the last row.
+    lcd.setCursor(0, NUM_ROWS - 1);
+    lcd.print("Syncing date & time");
+
     // discard any previously received packets
     while (Udp.parsePacket() > 0) ;
 
@@ -703,7 +673,7 @@ time_t getNtpTime()
 
     sendNTPpacket(ntpServerIP);
 
-    delay(50);
+    // delay(50);
     uint32_t beginWait = millis();
 
     while ((millis() - beginWait) < 5000)
@@ -736,11 +706,6 @@ time_t getNtpTime()
             now += (TIME_ZONE * SECS_PER_HOUR);
 #endif
 
-            //
-            // Handle British Summer Time
-            //
-            now += BSTOffset();
-
             return (now);
         }
 
@@ -752,28 +717,6 @@ time_t getNtpTime()
 }
 
 
-//
-// If we're in British Summer Time return the extra offset
-// to add to the time (i.e. one hour.).
-//
-int BSTOffset()
-{
-// last sunday of march
-    int beginDSTDate = (31 - (5 * year() / 4 + 4) % 7);
-    int beginDSTMonth = 3;
-
-//last sunday of october
-    int endDSTDate = (31 - (5 * year() / 4 + 1) % 7);
-    int endDSTMonth = 10;
-
-// DST is valid as:
-    if (((month() > beginDSTMonth) && (month() < endDSTMonth))
-            || ((month() == beginDSTMonth) && (day() >= beginDSTDate))
-            || ((month() == endDSTMonth) && (day() <= endDSTDate)))
-        return 3600;
-    else
-        return 0;
-}
 
 
 // send an NTP request to the time server at the given address
