@@ -589,18 +589,8 @@ void loop()
                         break;
                 }
 
-                // Write the updated value to flash
-                File f = SPIFFS.open("/tram.stop", "w");
-
-                if (f)
-                {
-                    DEBUG_LOG("Writing to /tram.stop: ");
-                    DEBUG_LOG(tram_stop);
-                    DEBUG_LOG("\n");
-
-                    f.println(tram_stop);
-                    f.close();
-                }
+                // Record the data in a file.
+                write_file("/tram.stop", tram_stop);
 
                 // So we've changed the tram ID we should refresh the date.
                 fetch_tram_times();
@@ -630,21 +620,11 @@ void loop()
                         break;
                 }
 
+                // Record the data into a file.
+                write_file("/time.zone", tmp);
+
                 // Change the timezone now
                 time_zone_offset = atoi(tmp);
-
-                // Write the updated value to flash
-                File f = SPIFFS.open("/time.zone", "w");
-
-                if (f)
-                {
-                    DEBUG_LOG("Writing to /time.zone: ");
-                    DEBUG_LOG(tmp);
-                    DEBUG_LOG("\n");
-
-                    f.println(tmp);
-                    f.close();
-                }
 
                 // Force a resync of the timezone, via a resync of the time.
                 setSyncProvider(getNtpTime);
@@ -1067,4 +1047,22 @@ void serveHTML(WiFiClient client)
     client.println("</body>");
     client.println("</html>");
 
+}
+
+
+void write_file(const char *path, const char *data)
+{
+    File f = SPIFFS.open(path, "w");
+
+    if (f)
+    {
+        DEBUG_LOG("Writing file:");
+        DEBUG_LOG(path);
+        DEBUG_LOG(" data:");
+        DEBUG_LOG(data);
+        DEBUG_LOG("\n");
+
+        f.println(data);
+        f.close();
+    }
 }
