@@ -145,7 +145,10 @@
 #include "TimeLib.h"
 
 
-
+//
+// The button handler
+//
+#include "OneButton.h"
 
 
 //
@@ -199,6 +202,14 @@ static const char ntpServerName[] = "pool.ntp.org";
 //
 bool backlight = true;
 
+
+//
+// Setup a new OneButton on pin D8.
+//
+OneButton button(D8, false);
+
+volatile bool short_click = false;
+volatile bool long_click = false;
 
 
 //
@@ -371,20 +382,24 @@ void setup()
     pinMode(D8, INPUT_PULLUP);
     pinMode(D0, OUTPUT);
     digitalWrite(D0, HIGH);
+
+    //
+    // Configure the botton-action(s).
+    //
+    button.attachClick(on_short_click);
+    button.attachLongPressStop(on_long_click);
+
 }
 
+void on_short_click()
+{
+    short_click = true;
+}
 
-
-
-int buttonState = LOW;
-
-// the current and previous readings from the input pin
-int thisButtonState = LOW;
-int lastButtonState = LOW;
-
-// time is measured in milliseconds and will quickly exceed limitations of an integer, so we use a long for these two
-unsigned long lastDebounceTime = 0;  // the time the button state last switched
-unsigned long debounceDelay = 10;    // the state must remain the same for this many millis to register the button press
+void on_long_click()
+{
+    long_click = true;
+}
 
 
 //
@@ -396,42 +411,37 @@ unsigned long debounceDelay = 10;    // the state must remain the same for this 
 void loop()
 {
     //
-    // This button is optional, but if installed (between D0 & D8) it
-    // will toggle the state of the backlight.
+    // Process the button.
     //
-    thisButtonState = digitalRead(D8);
+    button.tick();
 
-    // if the current state does not match the previous state
-    // the button was just pressed/released, or is transition noise
-    if (thisButtonState != lastButtonState)
+    //
+    // If we have a pending-short-click then handle it
+    //
+    if (short_click)
     {
-        // reset the timer
-        lastDebounceTime = millis();
+        Serial.println("Short Click");
+        short_click = false;
+        // Invert the backlight flag
+        backlight = !backlight;
+
+        // Make it take effect.
+        lcd.setBacklight(backlight);
     }
 
-    // once delay millis have elapsed, if the state remains the same, register the press
-    if ((millis() - lastDebounceTime) > debounceDelay)
+    //
+    // If we have a pending long-click then handle it.
+    //
+    if (long_click)
     {
-
-        // if the button state has changed
-        if (thisButtonState != buttonState)
-        {
-            buttonState = thisButtonState;
-
-            // only toggle the LED if the buttonState has switched from LOW to HIGH
-            if (buttonState == HIGH)
-            {
-                // Invert the backlight flag
-                backlight = !backlight;
-
-                // Make it take effect.
-                lcd.setBacklight(backlight);
-            }
-        }
+        Serial.println("Long Click");
+        long_click = false;
+        // Force a resync of the timezone, via a resync of the time.
+        setSyncProvider(getNtpTime);
+        fetch_tram_times();
     }
 
-    // persist for next loop iteration
-    lastButtonState = thisButtonState;
+
 
     // Keep the previous time, to avoid needless re-draws
     static char prev_time[NUM_COLS] = { '\0'};

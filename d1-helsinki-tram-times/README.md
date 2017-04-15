@@ -23,3 +23,11 @@ The only addition configuration required is to set the tram-stop to
 view - by default it will show the departures of [Kytösuontie](https://hsl.trapeze.fi/omatpysakit/web?command=fullscreen2&stop=1160404).   To change
 the tram-stop open the IP address in your browser and use the HTML-form
 to submit the new ID.
+
+
+# Optional Button
+
+If you wire a button between D0 & D8 you gain additional functionality:
+
+* Short-Press the button to toggle the backlight.
+* Long-Press the button to resync the date/time __and__ the tram-data.
