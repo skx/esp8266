@@ -62,8 +62,7 @@
 //   Access-Point name, in config-mode
 //   OTA name.
 //
-#define PROJECT_NAME "TRAM-TIMES"
-
+#define PROJECT_NAME    "TRAM-TIMES"
 
 
 //
@@ -73,7 +72,7 @@
 #define NUM_COLS 20
 
 //
-// The URL to poll
+// The URL to fetch our tram-data from
 //
 #define TRAM_HOST "steve.fi"
 #define TRAM_PATH "/Helsinki/Tram-API/api.cgi?id="
@@ -208,6 +207,9 @@ bool backlight = true;
 //
 OneButton button(D8, false);
 
+//
+// Are there pending clicks to process?
+//
 volatile bool short_click = false;
 volatile bool long_click = false;
 
@@ -217,7 +219,9 @@ volatile bool long_click = false;
 //
 void setup()
 {
+    //
     // Enable our serial port.
+    //
     Serial.begin(115200);
 
     //
@@ -280,12 +284,15 @@ void setup()
     if (strlen(tram_stop) == 0)
         strcpy(tram_stop, DEFAULT_TRAM_STOP);
 
+    //
     // initialize the LCD
+    //
     lcd.begin();
-
-    // Turn on the blacklight
     lcd.setBacklight(true);
 
+    //
+    // Show a message.
+    //
     lcd.setCursor(0, 0);
     lcd.print("Booting up ..");
 
@@ -301,10 +308,14 @@ void setup()
     lcd.setCursor(0, 0);
     lcd.print("WiFi connected  ");
     lcd.setCursor(0, 1);
+    lcd.print(" ");
     lcd.print(WiFi.localIP());
 
-    // Allow this to be visible.
+    //
+    // Allow the IP to be visible.
+    //
     delay(2500);
+
 
     //
     // Ensure our UDP port is listening for receiving NTP-replies
@@ -349,9 +360,9 @@ void setup()
     });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
     {
-        char buf[16];
+        char buf[NUM_COLS + 1];
         memset(buf, '\0', sizeof(buf));
-        snprintf(buf, sizeof(buf) - 1, "Upgrade - %02u%%          ", (progress / (total / 100)));
+        snprintf(buf, NUM_COLS, "Upgrade - %02u%%          ", (progress / (total / 100)));
         lcd.setCursor(0, 0);
         lcd.print(buf);
     });
@@ -384,18 +395,26 @@ void setup()
     digitalWrite(D0, HIGH);
 
     //
-    // Configure the botton-action(s).
+    // Configure the button-action(s).
     //
     button.attachClick(on_short_click);
     button.attachLongPressStop(on_long_click);
 
 }
 
+
+//
+// Record that a short-click happened.
+//
 void on_short_click()
 {
     short_click = true;
 }
 
+
+//
+// Record that a long-click happened.
+//
 void on_long_click()
 {
     long_click = true;
@@ -403,10 +422,7 @@ void on_long_click()
 
 
 //
-// This function is called continously, and is responsible
-// for performing updates to the screen, polling the remote
-// HTTP-server for our tram-data, and also running a HTTP-server
-// of its own.
+// This function is called continously.
 //
 void loop()
 {
@@ -420,12 +436,12 @@ void loop()
     //
     if (short_click)
     {
-        Serial.println("Short Click");
         short_click = false;
-        // Invert the backlight flag
-        backlight = !backlight;
+        DEBUG_LOG("Short Click\n");
 
-        // Make it take effect.
+
+        // Toggle the state of the backlight
+        backlight = !backlight;
         lcd.setBacklight(backlight);
     }
 
@@ -434,16 +450,17 @@ void loop()
     //
     if (long_click)
     {
-        Serial.println("Long Click");
         long_click = false;
-        // Force a resync of the timezone, via a resync of the time.
+        DEBUG_LOG("Long Click\n");
+
+        // Update the date/time & tram-data.
         setSyncProvider(getNtpTime);
         fetch_tram_times();
     }
 
-
-
+    //
     // Keep the previous time, to avoid needless re-draws
+    //
     static char prev_time[NUM_COLS] = { '\0'};
 
     //
@@ -480,6 +497,7 @@ void loop()
 
 
 
+    //
     // Now draw all the rows - correctly doing this
     // after the previous step might have updated
     // the display.
@@ -515,6 +533,7 @@ void loop()
 
         strcpy(prev_time, screen[0]);
     }
+
 
     //
     // Check if a client has connected to our HTTP-server.
@@ -644,7 +663,7 @@ void loop()
 }
 
 
-void  update_tram_times(const char *txt)
+void update_tram_times(const char *txt)
 {
     char* pch = NULL;
 
@@ -731,6 +750,24 @@ String fetchURL(const char *host, const char *path)
     bool gotResponse = false;
     long now;
 
+    //
+    // User-Agent will have the MAC address in it, for
+    // identification-purposes
+    //
+    uint8_t mac_array[6];
+    static char tmp[64];
+
+    WiFi.macAddress(mac_array);
+    snprintf(tmp, sizeof(tmp) - 1, "User-Agent: %s-%02X:%02X:%02X:%02X:%02X:%02X/1.0",
+             PROJECT_NAME,
+             mac_array[0],
+             mac_array[1],
+             mac_array[2],
+             mac_array[3],
+             mac_array[4],
+             mac_array[5]
+            );
+
 
     if (client.connect(host, 443))
     {
@@ -744,7 +781,7 @@ String fetchURL(const char *host, const char *path)
 
         client.print("Host: ");
         client.println(host);
-        client.println("User-Agent: arduino/1.0");
+        client.println(tmp);
         client.println("");
 
         now = millis();
