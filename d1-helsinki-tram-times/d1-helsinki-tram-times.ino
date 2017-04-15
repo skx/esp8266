@@ -300,6 +300,7 @@ void setup()
     // Handle Connection.
     //
     WiFiManager wifiManager;
+    wifiManager.setAPCallback(access_point_callback);
     wifiManager.autoConnect(PROJECT_NAME);
 
     //
@@ -420,6 +421,13 @@ void on_long_click()
     long_click = true;
 }
 
+void access_point_callback(WiFiManager* myWiFiManager)
+{
+    lcd.setCursor(0, 0);
+    lcd.print("AccessPoint Mode");
+    lcd.setCursor(0, 1);
+    lcd.print(PROJECT_NAME);
+}
 
 //
 // This function is called continously.
