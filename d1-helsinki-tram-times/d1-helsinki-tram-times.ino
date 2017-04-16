@@ -486,7 +486,13 @@ void loop()
         draw_line(0, "IP Address:");
         draw_line(1, WiFi.localIP().toString().c_str());
 
-        snprintf(line, NUM_COLS, "Timezone: %d", time_zone_offset);
+        if (time_zone_offset > 0)
+            snprintf(line, NUM_COLS, "Timezone: +%d", time_zone_offset);
+        else if (time_zone_offset < 0)
+            snprintf(line, NUM_COLS, "Timezone: -%d", time_zone_offset);
+        else
+            snprintf(line, NUM_COLS, "Timezone: %d", time_zone_offset);
+
         draw_line(2, line);
 
         snprintf(line, NUM_COLS, "Tram ID : %s", tram_stop);
@@ -1059,9 +1065,23 @@ void serveHTML(WiFiClient client)
     client.println("<div class=\"col-md-4\"></div>");
     client.println("<div class=\"col-md-4\">");
     client.print("<p>The time zone you're configured is GMT ");
+
+    if (time_zone_offset > 0)
+        client.print("+");
+
+    if (time_zone_offset < 0)
+        client.print("-");
+
     client.print(time_zone_offset);
     client.print(" but you can change that:</p>");
     client.print("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"tz\" value=\"");
+
+    if (time_zone_offset > 0)
+        client.print("+");
+
+    if (time_zone_offset < 0)
+        client.print("-");
+
     client.print(time_zone_offset);
     client.println("\"><input type=\"submit\" value=\"Update\"></form>");
     client.println("</div>");
