@@ -349,36 +349,31 @@ void setup()
 
     ArduinoOTA.onStart([]()
     {
-        lcd.setCursor(0, 0);
-        lcd.print("OTA Start");
+        draw_line(0, "OTA Start");
     });
     ArduinoOTA.onEnd([]()
     {
-        lcd.setCursor(0, 0);
-        lcd.print("OTA Start          ");
+        draw_line(0, "OTA Ended");
     });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
     {
         char buf[NUM_COLS + 1];
         memset(buf, '\0', sizeof(buf));
-        snprintf(buf, NUM_COLS, "Upgrade - %02u%%          ", (progress / (total / 100)));
-        lcd.setCursor(0, 0);
-        lcd.print(buf);
+        snprintf(buf, NUM_COLS, "Upgrade - %02u%%", (progress / (total / 100)));
+        draw_line(0, buf);
     });
     ArduinoOTA.onError([](ota_error_t error)
     {
-        lcd.setCursor(0, 0);
-
         if (error == OTA_AUTH_ERROR)
-            lcd.print("Auth Failed          ");
+            draw_line(0, "Auth Failed");
         else if (error == OTA_BEGIN_ERROR)
-            lcd.print("Begin Failed          ");
+            draw_line(0, "Begin Failed");
         else if (error == OTA_CONNECT_ERROR)
-            lcd.print("Connect Failed          ");
+            draw_line(0, "Connect Failed");
         else if (error == OTA_RECEIVE_ERROR)
-            lcd.print("Receive Failed          ");
+            draw_line(0, "Receive Failed");
         else if (error == OTA_END_ERROR)
-            lcd.print("End Failed          ");
+            draw_line(0, "End Failed");
     });
 
     //
@@ -428,13 +423,18 @@ void on_long_click()
     long_click = true;
 }
 
+//
+// If we're unconfigured we run an access-point.
+//
+// Show that, explicitly.
+//
 void access_point_callback(WiFiManager* myWiFiManager)
 {
-    lcd.setCursor(0, 0);
-    lcd.print("AccessPoint Mode");
-    lcd.setCursor(0, 1);
-    lcd.print(PROJECT_NAME);
+    draw_line(0, "AccessPoint Mode");
+    draw_line(1, PROJECT_NAME);
 }
+
+
 
 //
 // This function is called continously.
@@ -528,8 +528,7 @@ void loop()
     snprintf(screen[0], NUM_COLS, "%02d:%02d:%02d %2d %s", hur, min, sec, day(t), monthShortStr(month(t)));
 
     //
-    // Every two minutes we'll update the departure time
-    // of the next tram.
+    // Every two minutes we'll update the departure times.
     //
     // We also do it immediately the first time we're run,
     // when there is no pending time available.
@@ -674,6 +673,13 @@ void loop()
 }
 
 
+//
+// Given a bunch of CSV, containing departures,
+// we parse this and update the screen-array.
+//
+// The actual drawing of that data happens in the `loop()`
+// function.
+//
 void update_tram_times(const char *txt)
 {
     char* pch = NULL;
@@ -749,7 +755,9 @@ void update_tram_times(const char *txt)
 }
 
 
-
+//
+// Fetch a web-page, via HTTPS.
+//
 String fetchURL(const char *host, const char *path)
 {
     WiFiClientSecure client;
@@ -864,6 +872,9 @@ void fetch_tram_times()
     char url[128];
     snprintf(url, sizeof(url) - 1, "%s%s", TRAM_PATH, tram_stop);
 
+    //
+    // Fetch the remote URL & parse the data
+    //
     String body = fetchURL(TRAM_HOST, url);
     update_tram_times(body.c_str());
 }
@@ -971,6 +982,12 @@ void sendNTPpacket(IPAddress &address)
 }
 
 
+//
+// This is a bit horrid.
+//
+// Serve a HTML-page to any clients who connect, via
+// a browser.
+//
 void serveHTML(WiFiClient client)
 {
     client.println("HTTP/1.1 200 OK");
@@ -1093,6 +1110,10 @@ void serveHTML(WiFiClient client)
 }
 
 
+//
+// Open the given file for writing, and write
+// out the specified data.
+//
 void write_file(const char *path, const char *data)
 {
     File f = SPIFFS.open(path, "w");
@@ -1110,6 +1131,21 @@ void write_file(const char *path, const char *data)
     }
 }
 
+
+//
+// Draw a single line of text on the given row of our
+// LCD.
+//
+// This is used to ensure that each line drawn is always
+// padded with spaces.  This is required to avoid
+// display artifacts if you draw:
+//
+//    THIS IS A LONG LINE
+// then
+//    HELLO
+//
+// (Which would show "HELLOIS A LONG LINE".)
+//
 void draw_line(int row, const char *txt)
 {
     lcd.setCursor(0, row);
