@@ -211,6 +211,7 @@ OneButton button(D8, false);
 // Are there pending clicks to process?
 //
 volatile bool short_click = false;
+volatile bool double_click = false;
 volatile bool long_click = false;
 
 
@@ -293,8 +294,7 @@ void setup()
     //
     // Show a message.
     //
-    lcd.setCursor(0, 0);
-    lcd.print("Booting up ..");
+    draw_line(0, "Booting up ..");
 
     //
     // Handle Connection.
@@ -306,11 +306,9 @@ void setup()
     //
     // Now we're connected show the local IP address.
     //
-    lcd.setCursor(0, 0);
-    lcd.print("WiFi connected  ");
-    lcd.setCursor(0, 1);
-    lcd.print(" ");
-    lcd.print(WiFi.localIP());
+    draw_line(0, "WiFi Connected");
+    draw_line(1, WiFi.localIP().toString().c_str());
+
 
     //
     // Allow the IP to be visible.
@@ -399,6 +397,7 @@ void setup()
     // Configure the button-action(s).
     //
     button.attachClick(on_short_click);
+    button.attachDoubleClick(on_double_click);
     button.attachLongPressStop(on_long_click);
 
 }
@@ -412,6 +411,14 @@ void on_short_click()
     short_click = true;
 }
 
+
+//
+// Record that a double-click happened.
+//
+void on_double_click()
+{
+    double_click = true;
+}
 
 //
 // Record that a long-click happened.
@@ -464,6 +471,28 @@ void loop()
         // Update the date/time & tram-data.
         setSyncProvider(getNtpTime);
         fetch_tram_times();
+    }
+
+    //
+    // If we have a pending double-click then handle it
+    //
+    if (double_click)
+    {
+        double_click = false;
+        DEBUG_LOG("Double Click\n");
+
+        char line[NUM_COLS + 1];
+
+        draw_line(0, "IP Address:");
+        draw_line(1, WiFi.localIP().toString().c_str());
+
+        snprintf(line, NUM_COLS, "Timezone: %d", time_zone_offset);
+        draw_line(2, line);
+
+        snprintf(line, NUM_COLS, "Tram ID : %s", tram_stop);
+        draw_line(3, line);
+
+        delay(2500);
     }
 
     //
@@ -525,19 +554,7 @@ void loop()
     if (strcmp(prev_time, screen[0]) != 0)
     {
         for (int i = 0; i < NUM_ROWS; i++)
-        {
-            lcd.setCursor(0, i);
-            lcd.print(screen[i]);
-
-            // Padding?
-            int extra = NUM_COLS - strlen(screen[i]);
-
-            while (extra > 0)
-            {
-                lcd.print(" ");
-                extra --;
-            }
-        }
+            draw_line(i, screen[i]);
 
         strcpy(prev_time, screen[0]);
     }
@@ -831,8 +848,7 @@ String fetchURL(const char *host, const char *path)
 void fetch_tram_times()
 {
     // Show what we're doing on the last row.
-    lcd.setCursor(0, NUM_ROWS - 1);
-    lcd.print("Refreshing Trams ..");
+    draw_line(NUM_ROWS - 1, "Refreshing Trams ..");
 
     DEBUG_LOG("Making request for tram details \n");
     DEBUG_LOG("Tram stop is ");
@@ -857,8 +873,7 @@ time_t getNtpTime()
     IPAddress ntpServerIP;
 
     // Show what we're doing on the last row.
-    lcd.setCursor(0, NUM_ROWS - 1);
-    lcd.print("Syncing date & time");
+    draw_line(NUM_ROWS - 1, "Syncing date & time");
 
     // discard any previously received packets
     while (Udp.parsePacket() > 0) ;
@@ -1074,3 +1089,19 @@ void write_file(const char *path, const char *data)
         f.close();
     }
 }
+
+void draw_line(int row, const char *txt)
+{
+    lcd.setCursor(0, row);
+    lcd.print(txt);
+
+    int extra = NUM_COLS - strlen(txt);
+
+    while (extra > 0)
+    {
+        lcd.print(" ");
+        extra--;
+    }
+
+}
+
