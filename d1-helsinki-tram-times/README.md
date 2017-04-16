@@ -30,4 +30,5 @@ to submit the new ID.
 If you wire a button between D0 & D8 you gain additional functionality:
 
 * Short-Press the button to toggle the backlight.
+* Double-click to show information.
 * Long-Press the button to resync the date/time __and__ the tram-data.
