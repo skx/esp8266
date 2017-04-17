@@ -79,9 +79,9 @@
 //
 // The URL to fetch our tram-data from.
 //
-// The ID of the tram will be appended to this URL.
+// The string `__ID__` in this URL will be replaced by the ID of the stop.
 //
-#define TRAM_URL "https://steve.fi/Helsinki/Tram-API/api.cgi?id="
+#define DEFAULT_API_ENDPOINT "https://steve.fi/Helsinki/Tram-API/api.cgi?id=__ID__"
 
 //
 // The default tram stop to monitor.
@@ -151,7 +151,7 @@
 
 
 //
-// For feaching URLS
+// For fetching URLS
 //
 #include "url_fetcher.h"
 
@@ -172,6 +172,12 @@ WiFiServer server(80);
 // The tram stop we're going to display.
 //
 char tram_stop[12] = { '\0' };
+
+//
+// The default API end-point
+//
+char api_end_point[256] = { '\0' };
+
 
 //
 // This two-dimensional array holds the text that we're
@@ -240,57 +246,31 @@ void setup()
     //
     // Load the tram-stop if we can
     //
-    File f = SPIFFS.open("/tram.stop", "r");
+    String tram_stop_str = read_file("/tram.stop");
 
-    while (f.available())
-    {
+    if (tram_stop_str.length() > 0)
+        strcpy(tram_stop, tram_stop_str.c_str());
+    else
+        strcpy(tram_stop, DEFAULT_TRAM_STOP);
 
-        //
-        // We'll process the data to make sure we only
-        // use 0-9 in our tram-stop.  This is mostly a
-        // paranoia check to make sure we don't try
-        // to cope with "\r", "\n", etc.
-        //
-        String line = f.readStringUntil('\n');
-        const char *data = line.c_str();
-        int len = strlen(data);
+    //
+    // Load the API end-point if we can
+    //
+    String api_end_str = read_file("/tram.api");
 
-        //
-        // Empty the value.
-        //
-        memset(tram_stop, '\0', sizeof(tram_stop));
-
-        // Append suitable characters.
-        for (int i = 0; i < len; i++)
-        {
-            if (data[i] >= '0' && data[i] <= '9')
-                tram_stop[strlen(tram_stop)] = data[i];
-        }
-    }
-
-    f.close();
-
+    if (api_end_str.length() > 0)
+        strcpy(api_end_point, api_end_str.c_str());
+    else
+        strcpy(api_end_point, DEFAULT_API_ENDPOINT);
 
     //
     // Load the time-zone offset, if we can
     //
-    File tz = SPIFFS.open("/time.zone", "r");
+    String tz_str = read_file("/time.zone");
 
-    while (tz.available())
-    {
-        String line = tz.readStringUntil('\n');
-        time_zone_offset = line.toInt();
-    }
+    if (tz_str.length() > 0)
+        time_zone_offset = tz_str.toInt();
 
-    tz.close();
-
-
-    //
-    // Did we fail to load the tram-stop?  If so use
-    // the default.
-    //
-    if (strlen(tram_stop) == 0)
-        strcpy(tram_stop, DEFAULT_TRAM_STOP);
 
     //
     // initialize the LCD
@@ -546,7 +526,7 @@ void loop()
     // uses a static-buffer.  Sigh.
     //
     char *w_day = strdup(dayShortStr(weekday(t)));
-    snprintf(screen[0], NUM_COLS, "%02d:%02d:%02d %s %2d %s", hur, min, sec, w_day, day(t), monthShortStr(month(t)));
+    snprintf(screen[0], NUM_COLS, "%02d:%02d:%02d %s %2d %s 2017", hur, min, sec, w_day, day(t), monthShortStr(month(t)));
 
     //
     // Free the copied day-name
@@ -648,6 +628,39 @@ void loop()
 
                 // Record the data in a file.
                 write_file("/tram.stop", tram_stop);
+
+                // So we've changed the tram ID we should refresh the date.
+                fetch_tram_times();
+            }
+        }
+
+        // Change the API end-point
+        if (request.indexOf("/?api=") != -1)
+        {
+            char *pattern = "/?api=";
+            char *s = strstr(request.c_str(), pattern);
+
+            if (s != NULL)
+            {
+                char tmp[256] = { '\0' };
+
+                // Skip past the pattern.
+                s += strlen(pattern);
+
+                // Add characters until we come to a terminating character.
+                for (int i = 0; i < strlen(s); i++)
+                {
+                    if ((s[i] != ' ') && (s[i] != '&'))
+                        tmp[strlen(tmp)] = s[i];
+                    else
+                        break;
+                }
+
+                // URL decode..
+                urldecode(tmp, api_end_point);
+
+                // Record the data in a file.
+                write_file("/tram.api", api_end_point);
 
                 // So we've changed the tram ID we should refresh the date.
                 fetch_tram_times();
@@ -795,10 +808,11 @@ void fetch_tram_times()
     draw_line(NUM_ROWS - 1, "Refreshing Trams ..");
 
     //
-    // The URL we're going to fetch
+    // The URL we're going to fetch, replacing `__ID__` with
+    // the ID of the tram.
     //
-    String url = TRAM_URL;
-    url += tram_stop;
+    String url(api_end_point);
+    url.replace("__ID__", tram_stop);
 
     //
     // Show what we're going to do.
@@ -968,7 +982,10 @@ void serveHTML(WiFiClient client)
     client.println("<li><a href=\"https://steve.fi/Hardware/\">Steve's Projects</a></li>");
     client.println("</ul>");
     client.println("</nav>");
-    client.println("<div class=\"container-fluid\">");
+    client.println("<div class=\"container-fluid\" style=\"border:1px solid red !important\">");
+
+    // Start of body
+    // Row
     client.println("<div class=\"row\">");
     client.println("<div class=\"col-md-3\"></div>");
     client.println("<div class=\"col-md-9\"><h1>Tram Times</h1><p>&nbsp;</p></div>");
@@ -990,9 +1007,11 @@ void serveHTML(WiFiClient client)
     client.println("</div>");
     client.println("<div class=\"col-md-4\"></div>");
     client.println("</div>");
+
+    // Row
     client.println("<div class=\"row\">");
     client.println("<div class=\"col-md-3\"></div>");
-    client.println("<div class=\"col-md-9\"> <h2>Backlight</h2><p>&nbsp;</p></div>");
+    client.println("<div class=\"col-md-9\"> <h2>Backlight</h2></div>");
     client.println("</div>");
     client.println("<div class=\"row\">");
     client.println("<div class=\"col-md-4\"></div>");
@@ -1007,9 +1026,11 @@ void serveHTML(WiFiClient client)
     client.println("</div>");
     client.println("<div class=\"col-md-4\"></div>");
     client.println("</div>");
+
+    // Row
     client.println("<div class=\"row\">");
     client.println("<div class=\"col-md-3\"></div>");
-    client.println("<div class=\"col-md-9\"> <h2>Change Tram Stop</h2><p>&nbsp;</p></div>");
+    client.println("<div class=\"col-md-9\"> <h2>Change Tram Stop</h2></div>");
     client.println("</div>");
     client.println("<div class=\"row\">");
     client.println("<div class=\"col-md-4\"></div>");
@@ -1025,13 +1046,11 @@ void serveHTML(WiFiClient client)
     client.println("</div>");
     client.println("<div class=\"col-md-4\"></div>");
     client.println("</div>");
-    client.println("</div>");
 
-    client.println("<p>&nbsp;</p>");
-
+    // Row
     client.println("<div class=\"row\">");
     client.println("<div class=\"col-md-3\"></div>");
-    client.println("<div class=\"col-md-9\"> <h2>Change Time Zone</h2><p>&nbsp;</p></div>");
+    client.println("<div class=\"col-md-9\"> <h2>Change Time Zone</h2></div>");
     client.println("</div>");
     client.println("<div class=\"row\">");
     client.println("<div class=\"col-md-4\"></div>");
@@ -1058,6 +1077,26 @@ void serveHTML(WiFiClient client)
     client.println("\"><input type=\"submit\" value=\"Update\"></form>");
     client.println("</div>");
     client.println("<div class=\"col-md-4\"></div>");
+    client.println("</div>");
+
+
+    // Row
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-3\"></div>");
+    client.println("<div class=\"col-md-9\"> <h2>Change API End-Point</h2></div>");
+    client.println("</div>");
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("<div class=\"col-md-4\">");
+    client.print("<p>This device works by polling a remote API, to fetch tram-data.  You can change the end-point in the form below:</p>");
+    client.println("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"api\" size=\"75\" value=\"");
+    client.print(api_end_point);
+    client.println("\"><input type=\"submit\" value=\"Update\"></form>");
+    client.println("</div>");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("</div>");
+
+    // End of body
     client.println("</div>");
     client.println("</body>");
     client.println("</html>");
@@ -1086,6 +1125,36 @@ void write_file(const char *path, const char *data)
     }
 }
 
+//
+// Read a single line from a given file, and return it.
+//
+// This function explicitly filters out `\r\n`, and only
+// read sthe first line of the text.
+//
+String read_file(const char *path)
+{
+    String line;
+
+    File f = SPIFFS.open(path, "r");
+
+    if (f)
+    {
+        line = f.readStringUntil('\n');
+        f.close();
+    }
+
+
+    String result;
+
+    for (int i = 0; i < line.length() ; i++)
+    {
+        if ((line[i] != '\n') &&
+                (line[i] != '\r'))
+            result += line[i];
+    }
+
+    return (result);
+}
 
 //
 // Draw a single line of text on the given row of our
@@ -1114,4 +1183,45 @@ void draw_line(int row, const char *txt)
         extra--;
     }
 
+}
+
+//
+// This is a horrid function.
+//
+void urldecode(const char *src, char *dst)
+{
+    char a, b;
+
+    while (*src)
+    {
+        if ((*src == '%') &&
+                ((a = src[1]) && (b = src[2])) &&
+                (isxdigit(a) && isxdigit(b)))
+        {
+            if (a >= 'a')
+                a -= 'a' - 'A';
+
+            if (a >= 'A')
+                a -= ('A' - 10);
+            else
+                a -= '0';
+
+            if (b >= 'a')
+                b -= 'a' - 'A';
+
+            if (b >= 'A')
+                b -= ('A' - 10);
+            else
+                b -= '0';
+
+            *dst++ = 16 * a + b;
+            src += 3;
+        }
+        else
+        {
+            *dst++ = *src++;
+        }
+    }
+
+    *dst++ = '\0';
 }
