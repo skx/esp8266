@@ -19,6 +19,7 @@
 class UrlFetcher
 {
 public:
+
     /*
      * Constructor.
      */
@@ -47,6 +48,21 @@ public:
 
 
     /*
+     * Get the user-agent, if one hasn't been set it will be created
+     * based upon the MAC-address of the board.
+     */
+    const char *getAgent();
+
+
+    /*
+     * Set the user-agent to the specified string.
+     */
+    void setAgent(const char *userAgent);
+
+
+private:
+
+    /*
      * Get the host-part of the URL.
      */
     char *getHost();
@@ -71,28 +87,17 @@ public:
 
 
     /*
-     * Get the user-agent, if one hasn't been set it will be created
-     * based upon the MAC-address of the board.
-     */
-    const char *getAgent();
-
-    /*
-     * Set the user-agent to the specified string.
-     */
-    void setAgent(const char *userAgent);
-
-private:
-
-    /*
      * Parse URL into "host" + "path"
      */
     void parse();
+
 
     /*
      * Perform the fetch of the remote URL, recording
      * the response-headers and the body.
      */
     void fetch();
+
 
     /*
      * A copy of the URL we were constructed with.
@@ -110,7 +115,7 @@ private:
     char m_path[128] = { '\0' };
 
     /*
-     * The user-agent the user has set, if any.
+     * The user-agent to use for fetches.
      */
     char *m_user_agent = NULL;
 
@@ -123,7 +128,7 @@ private:
     WiFiClient *m_client;
 
     /*
-     * Have we fetched?
+     * Have we fetched the URL already?
      */
     bool m_fetched = false;
 
