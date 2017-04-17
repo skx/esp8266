@@ -41,7 +41,7 @@ public:
     /*
      * Get the contents of the URL.
      */
-    String fetch();
+    String fetch(long timeout = 5000);
 
     /*
      * Is the URL SSL-based?
@@ -52,6 +52,11 @@ public:
      * The port to use - 80 for HTTP, 443 for SSL
      */
     int port();
+
+    /*
+     * Set the user-agent, if any.
+     */
+    void setAgent(const char *userAgent);
 
 private:
 
@@ -74,6 +79,11 @@ private:
      * The path extracted from the URL.
      */
     char m_path[128] = { '\0' };
+
+    /*
+     * The user-agent the user has set, if any.
+     */
+    char *m_user_agent = NULL;
 
     /*
      * The client we use for fetching.

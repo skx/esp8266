@@ -40,6 +40,12 @@ UrlFetcher::~UrlFetcher()
         m_url = NULL;
     }
 
+    if (m_user_agent)
+    {
+        free(m_user_agent);
+        m_user_agent = NULL;
+    }
+
     if (m_client)
     {
         delete(m_client);
@@ -77,11 +83,21 @@ int UrlFetcher::port()
         return 80;
 }
 
+/*
+ * Set the user-agent, if any.
+ */
+void UrlFetcher::setAgent(const char *userAgent)
+{
+    if (m_user_agent)
+        free(m_user_agent);
+
+    m_user_agent = strdup(userAgent);
+}
 
 /*
  * Fetch the contents of the remote URL.
  */
-String UrlFetcher::fetch()
+String UrlFetcher::fetch(long timeout)
 {
     if (strlen(m_host) < 1)
         parse();
@@ -92,29 +108,43 @@ String UrlFetcher::fetch()
         m_client = new WiFiClient;
 
 
+    /*
+     * If the user has set a user-agent then use it
+     * if not build one based on the MAC address of the
+     * board.
+     */
+    char ua[128];
+    memset(ua, '\0', sizeof(ua));
+
+    if (m_user_agent)
+    {
+        snprintf(ua, sizeof(ua) - 1, "User-Agent: %s", m_user_agent);
+    }
+    else
+    {
+        //
+        // User-Agent will have the MAC address in it, for
+        // identification-purposes
+        //
+        uint8_t mac_array[6];
+        WiFi.macAddress(mac_array);
+
+        snprintf(ua, sizeof(ua) - 1, "User-Agent: arduino-%02X:%02X:%02X:%02X:%02X:%02X/1.0",
+                 mac_array[0],
+                 mac_array[1],
+                 mac_array[2],
+                 mac_array[3],
+                 mac_array[4],
+                 mac_array[5]
+                );
+    }
+
     String headers = "";
     String body = "";
     bool finishedHeaders = false;
     bool currentLineIsBlank = true;
     bool gotResponse = false;
     long now;
-
-    //
-    // User-Agent will have the MAC address in it, for
-    // identification-purposes
-    //
-    uint8_t mac_array[6];
-    static char tmp[64];
-
-    WiFi.macAddress(mac_array);
-    snprintf(tmp, sizeof(tmp) - 1, "User-Agent: %02X:%02X:%02X:%02X:%02X:%02X/1.0",
-             mac_array[0],
-             mac_array[1],
-             mac_array[2],
-             mac_array[3],
-             mac_array[4],
-             mac_array[5]
-            );
 
 
     if (m_client->connect(m_host, port()))
@@ -125,13 +155,13 @@ String UrlFetcher::fetch()
 
         m_client->print("Host: ");
         m_client->println(m_host);
-        m_client->println(tmp);
+        m_client->println(ua);
         m_client->println("");
 
         now = millis();
 
         // checking the timeout
-        while (millis() - now < 3000)
+        while (millis() - now < timeout)
         {
             while (m_client->available())
             {
@@ -144,23 +174,15 @@ String UrlFetcher::fetch()
                 else
                 {
                     if (currentLineIsBlank && c == '\n')
-                    {
                         finishedHeaders = true;
-                    }
                     else
-                    {
                         headers = headers + c;
-                    }
                 }
 
                 if (c == '\n')
-                {
                     currentLineIsBlank = true;
-                }
                 else if (c != '\r')
-                {
                     currentLineIsBlank = false;
-                }
 
                 //marking we got a response
                 gotResponse = true;
