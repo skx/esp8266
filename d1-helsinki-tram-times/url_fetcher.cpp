@@ -37,6 +37,12 @@ UrlFetcher::~UrlFetcher()
         m_url = NULL;
     }
 
+    if (m_status)
+    {
+        free(m_status);
+        m_status = NULL;
+    }
+
     if (m_user_agent)
     {
         free(m_user_agent);
@@ -156,6 +162,140 @@ String UrlFetcher::headers()
     return (m_headers);
 }
 
+
+/*
+ * Return the HTTP-status-code of our fetch.
+ */
+int UrlFetcher::code()
+{
+    //
+    // Ensure that `m_headers` is populated.
+    //
+    if (! m_fetched)
+    {
+        fetch();
+        m_fetched = true;
+    }
+
+    //
+    // Make sure we have something useful.
+    //
+    const char *response = m_headers.c_str();
+
+    if (response == NULL)
+        return -1;
+
+    //
+    // Too short?
+    //
+    size_t len = strlen(response);
+
+    if (len < 10)
+        return -2;
+
+    //
+    // Response will start "HTTP/X.X CODE $MSG\n"
+    //
+    // Find the start & end of the CODE.
+    //
+    int start = 0;
+    int end   = 0;
+
+    //
+    // Find the first space
+    //
+    int c = 0;
+
+    while (c < len && (response[c] != ' '))
+    {
+        c += 1;
+    }
+
+    //
+    // Outside our bounds?  That's an error.
+    //
+    if (c >= len)
+        return -3;
+
+    //
+    // Bump past the space, and record it as the first digit.
+    //
+    c++;
+    start = c;
+
+    //
+    // Look for the separating space between the code and
+    // the explanation
+    //
+    while (c < len && (response[c] != ' '))
+    {
+        c += 1;
+    }
+
+    // Outside our length?
+    if (c >= len)
+        return -4;
+
+    //
+    // OK we have the start + end position of our status-code
+    //
+    end = c;
+
+    //
+    // Create that as a string.
+    //
+    char tmp[10];
+    memset(tmp, '\0', sizeof(tmp));
+    strncpy(tmp, response + start, end - start);
+
+    //
+    // Now convert to an integer.
+    //
+    return (atoi(tmp));
+}
+
+/*
+ * Return the complete status-line of the remote server
+ */
+char *UrlFetcher::status()
+{
+    if (m_status == NULL)
+    {
+        //
+        // Ensure that `m_headers` is populated.
+        //
+        if (! m_fetched)
+        {
+            fetch();
+            m_fetched = true;
+        }
+
+        //
+        // Get the response-headers, which will have the
+        // status-line in the first .. line.
+        //
+        const char *response = m_headers.c_str();
+
+        //
+        // Find the first newline.
+        //
+        char *end = strchr(response, '\n');
+
+        //
+        // Allocate memory for a copy of that first line.
+        //
+        m_status = (char *)malloc(end - response + 1);
+        memset(m_status, '\0', end - response + 1);
+
+        //
+        // Copy it into place.
+        //
+        strncpy(m_status, response, end - response);
+    }
+
+    // Return our copied memory.
+    return (m_status);
+}
 
 /*
  * Fetch the contents of the remote URL.

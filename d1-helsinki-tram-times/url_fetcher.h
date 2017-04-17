@@ -46,6 +46,16 @@ public:
      */
     String body();
 
+    /*
+     * Return the HTTP status-code of our fetch.
+     */
+    int code();
+
+    /*
+     * Return the complete status-line of the remote server
+     */
+    char *status();
+
 
     /*
      * Get the user-agent, if one hasn't been set it will be created
@@ -136,6 +146,11 @@ private:
      * The headers returned from the remote HTTP-fetch.
      */
     String m_headers;
+
+    /*
+     * The status-line.
+     */
+    char *m_status = NULL;
 
     /*
      * The body returned from the remote HTTP-fetch.
