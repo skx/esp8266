@@ -29,25 +29,32 @@
 //      ####################
 //
 //
-//   Finally there is a simple HTTP-server which is running on
-//   port 80, which shows the same information.
+//   There is a simple HTTP-server which is running on port 80, which
+//   will mirror the LCD-data, and allow changes to be made.
 //
-//   The built-in HTTP-server can also be used to change the time-zone
-//  offset and the tram-stop.  Both of these values will be persisted
-//  to flash memory, so that changes will survive reboots.
+//   The built-in HTTP-server can be used to change the time-zone
+//   offset, the tram-stop, and toggle the backlight.
 //
-//   This can be accessed via:
+//   Timezone-data, and tram-ID, will be persisted to flash memory, so
+//   that changes will survive reboots.
 //
-//    http://192.168.10.51/
+//   Because the Helsinki Tram API is a complex GraphQL-bease we're getting
+//   data via a simple helper:
 //
-//   Because the Helsinki Tram API has recently changed we've
-// started polling from a site that I control:
-//
-//   https://steve.fi/Helsinki/Tram-API/
+//       https://steve.fi/Helsinki/Tram-API/
 //
 //
-//  INPUT Button
-//    Added a button between D0 & D8.  This is used to toggle the state of the backlight
+//  Optional Button
+//  --------------
+//
+//    If you wire a button between D0 & D8 you can control the device
+//    using it:
+//
+//      Single press & release: Toggle backlight
+//
+//      Double-Click: show IP and other data.
+//
+//      Long-press & release: resync time/data.
 //
 //
 //   Steve
@@ -58,9 +65,7 @@
 //
 // The name of this project.
 //
-// Used for:
-//   Access-Point name, in config-mode
-//   OTA name.
+// Used for the Access-Point name, and for OTA-identification.
 //
 #define PROJECT_NAME    "TRAM-TIMES"
 
@@ -72,10 +77,11 @@
 #define NUM_COLS 20
 
 //
-// The URL to fetch our tram-data from
+// The URL to fetch our tram-data from.
 //
-#define TRAM_HOST "steve.fi"
-#define TRAM_PATH "/Helsinki/Tram-API/api.cgi?id="
+// The ID of the tram will be appended to this URL.
+//
+#define TRAM_URL "https://steve.fi/Helsinki/Tram-API/api.cgi?id="
 
 //
 // The default tram stop to monitor.
@@ -109,8 +115,7 @@
 #include "WiFiManager.h"
 
 //
-// We read/write the tram-stop to flash, along
-// with the timezone offset.
+// We read/write the tram-stop to flash, along with the timezone offset.
 //
 #include <FS.h>
 
@@ -137,6 +142,7 @@
 //
 #include <Wire.h>
 #include "LiquidCrystal_I2C.h"
+
 
 //
 // For dealing with NTP & the clock.
@@ -206,6 +212,7 @@ bool backlight = true;
 // Setup a new OneButton on pin D8.
 //
 OneButton button(D8, false);
+
 
 //
 // Are there pending clicks to process?
@@ -382,7 +389,10 @@ void setup()
     ArduinoOTA.begin();
 
     //
-    // We have a switch between D8 & 3.3V.
+    // We have a switch between D8 & D0.
+    //
+    // If this is missing no harm will be done, it will just
+    // never receive any clicks :)
     //
     pinMode(D8, INPUT_PULLUP);
     pinMode(D0, OUTPUT);
@@ -422,6 +432,7 @@ void on_long_click()
 {
     long_click = true;
 }
+
 
 //
 // If we're unconfigured we run an access-point.
@@ -525,9 +536,17 @@ void loop()
     //
     // Format the time & date in the first row.
     //
+    // NOTE: We need to copy the day of the week, as the time-library
+    // uses a static-buffer.  Sigh.
+    //
     char *w_day = strdup(dayShortStr(weekday(t)));
     snprintf(screen[0], NUM_COLS, "%02d:%02d:%02d %s %2d %s", hur, min, sec, w_day, day(t), monthShortStr(month(t)));
+
+    //
+    // Free the copied day-name
+    //
     free(w_day);
+
 
     //
     // Every two minutes we'll update the departure times.
@@ -760,8 +779,45 @@ void update_tram_times(const char *txt)
 //
 // Fetch a web-page, via HTTPS.
 //
-String fetchURL(const char *host, const char *path)
+String fetchURL(String url)
 {
+
+    char host[128] = { '\0' };
+    char path[128] = { '\0' };
+
+    /*
+     * Look for the host.
+     */
+    char *host_start = strstr(url.c_str(), "://");
+
+    if (host_start != NULL)
+    {
+        /*
+         * Look for the end.
+         */
+        host_start += 3;
+        char *host_end = host_start;
+
+        while (host_end[0] != '/')
+            host_end += 1;
+
+        strncpy(host, host_start, host_end - host_start);
+        strcpy(path, host_end);
+    }
+
+    DEBUG_LOG("Parsed URL ");
+    DEBUG_LOG(url);
+    DEBUG_LOG(" path is ");
+    DEBUG_LOG(path);
+    DEBUG_LOG("\n");
+
+    DEBUG_LOG("Parsed URL ");
+    DEBUG_LOG(url);
+    DEBUG_LOG(" host is ");
+    DEBUG_LOG(host);
+    DEBUG_LOG("\n");
+
+
     WiFiClientSecure client;
 
     String headers = "";
@@ -866,18 +922,14 @@ void fetch_tram_times()
     // Show what we're doing on the last row.
     draw_line(NUM_ROWS - 1, "Refreshing Trams ..");
 
-    DEBUG_LOG("Making request for tram details \n");
-    DEBUG_LOG("Tram stop is ");
-    DEBUG_LOG(tram_stop);
-    DEBUG_LOG("\n");
-
-    char url[128];
-    snprintf(url, sizeof(url) - 1, "%s%s", TRAM_PATH, tram_stop);
+    // The URL we're going to fetch
+    String url = TRAM_URL;
+    url += tram_stop;
 
     //
-    // Fetch the remote URL & parse the data
+    // Fetch the contents of the remote URL & parse that data
     //
-    String body = fetchURL(TRAM_HOST, url);
+    String body = fetchURL(url);
     update_tram_times(body.c_str());
 }
 
@@ -1162,4 +1214,3 @@ void draw_line(int row, const char *txt)
     }
 
 }
-
