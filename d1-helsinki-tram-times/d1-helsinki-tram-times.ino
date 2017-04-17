@@ -127,12 +127,6 @@
 #include <ArduinoOTA.h>
 
 //
-// HTTP server & SSL-fetching.
-//
-#include <ESP8266HTTPClient.h>
-#include <WiFiClientSecure.h>
-
-//
 // NTP uses UDP.
 //
 #include <WiFiUdp.h>
@@ -154,6 +148,12 @@
 // The button handler
 //
 #include "OneButton.h"
+
+
+//
+// For feaching URLS
+//
+#include "url_fetcher.h"
 
 
 //
@@ -775,142 +775,6 @@ void update_tram_times(const char *txt)
     }
 }
 
-
-//
-// Fetch a web-page, via HTTPS.
-//
-String fetchURL(String url)
-{
-
-    char host[128] = { '\0' };
-    char path[128] = { '\0' };
-
-    /*
-     * Look for the host.
-     */
-    char *host_start = strstr(url.c_str(), "://");
-
-    if (host_start != NULL)
-    {
-        /*
-         * Look for the end.
-         */
-        host_start += 3;
-        char *host_end = host_start;
-
-        while (host_end[0] != '/')
-            host_end += 1;
-
-        strncpy(host, host_start, host_end - host_start);
-        strcpy(path, host_end);
-    }
-
-    DEBUG_LOG("Parsed URL ");
-    DEBUG_LOG(url);
-    DEBUG_LOG(" path is ");
-    DEBUG_LOG(path);
-    DEBUG_LOG("\n");
-
-    DEBUG_LOG("Parsed URL ");
-    DEBUG_LOG(url);
-    DEBUG_LOG(" host is ");
-    DEBUG_LOG(host);
-    DEBUG_LOG("\n");
-
-
-    WiFiClientSecure client;
-
-    String headers = "";
-    String body = "";
-    bool finishedHeaders = false;
-    bool currentLineIsBlank = true;
-    bool gotResponse = false;
-    long now;
-
-    //
-    // User-Agent will have the MAC address in it, for
-    // identification-purposes
-    //
-    uint8_t mac_array[6];
-    static char tmp[64];
-
-    WiFi.macAddress(mac_array);
-    snprintf(tmp, sizeof(tmp) - 1, "User-Agent: %s-%02X:%02X:%02X:%02X:%02X:%02X/1.0",
-             PROJECT_NAME,
-             mac_array[0],
-             mac_array[1],
-             mac_array[2],
-             mac_array[3],
-             mac_array[4],
-             mac_array[5]
-            );
-
-
-    if (client.connect(host, 443))
-    {
-        DEBUG_LOG("connected to host ");
-        DEBUG_LOG(host);
-        DEBUG_LOG("\n");
-
-        client.print("GET ");
-        client.print(path);
-        client.println(" HTTP/1.1");
-
-        client.print("Host: ");
-        client.println(host);
-        client.println(tmp);
-        client.println("");
-
-        now = millis();
-
-        // checking the timeout
-        while (millis() - now < 3000)
-        {
-            while (client.available())
-            {
-                char c = client.read();
-
-                if (finishedHeaders)
-                {
-                    body = body + c;
-                }
-                else
-                {
-                    if (currentLineIsBlank && c == '\n')
-                    {
-                        finishedHeaders = true;
-                    }
-                    else
-                    {
-                        headers = headers + c;
-                    }
-                }
-
-                if (c == '\n')
-                {
-                    currentLineIsBlank = true;
-                }
-                else if (c != '\r')
-                {
-                    currentLineIsBlank = false;
-                }
-
-                //marking we got a response
-                gotResponse = true;
-
-            }
-
-            if (gotResponse)
-                break;
-        }
-    }
-
-    return (body);
-}
-
-
-
-
 //
 // Call our HTTP-service and retrieve the tram time(s).
 //
@@ -919,17 +783,26 @@ String fetchURL(String url)
 //
 void fetch_tram_times()
 {
+    //
     // Show what we're doing on the last row.
+    //
     draw_line(NUM_ROWS - 1, "Refreshing Trams ..");
 
+    //
     // The URL we're going to fetch
+    //
     String url = TRAM_URL;
     url += tram_stop;
 
     //
-    // Fetch the contents of the remote URL & parse that data
+    // Fetch the contents of the remote URL.
     //
-    String body = fetchURL(url);
+    UrlFetcher client(url);
+    String body = client.fetch();
+
+    //
+    // Parse the returned data and process it.
+    //
     update_tram_times(body.c_str());
 }
 
