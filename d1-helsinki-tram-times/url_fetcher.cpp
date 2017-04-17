@@ -99,7 +99,7 @@ const char *UrlFetcher::getAgent()
         WiFi.macAddress(mac_array);
 
         char tmp[128];
-        snprintf(tmp, sizeof(tmp) - 1, "User-Agent: arduino-%02X:%02X:%02X:%02X:%02X:%02X/1.0",
+        snprintf(tmp, sizeof(tmp) - 1, "arduino-%02X:%02X:%02X:%02X:%02X:%02X/1.0",
                  mac_array[0],
                  mac_array[1],
                  mac_array[2],
