@@ -24,6 +24,19 @@ view - by default it will show the departures of [Kytösuontie](https://hsl.trap
 the tram-stop open the IP address in your browser and use the HTML-form
 to submit the new ID.
 
+## Remote API
+
+The script by default parses, and displays, a simple CSV file which is
+hosted remotely.  By default that is:
+
+     https://steve.fi/Helsinki/Tram-API/api.cgi?id=__ID__
+
+You can use your browser to replace that end-point with one of your
+own choosing - which means that you can host it yourself, and write
+your own tram-data there.
+
+This will allow you to use this project with zero changes to the code!
+
 
 # Optional Button
 
