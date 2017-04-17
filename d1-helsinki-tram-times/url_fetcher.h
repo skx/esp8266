@@ -22,12 +22,7 @@ public:
     /*
      * Constructor.
      */
-    UrlFetcher(char *url);
-
-    /*
-     * Constructor.
-     */
-    UrlFetcher(String url);
+    UrlFetcher(const char *url);
 
     /*
      * Destructor
@@ -70,13 +65,19 @@ public:
 
 
     /*
-     * The port to use - 80 for HTTP, 443 for SSL
+     * Return the port we'll connect to, 80 for HTTP, 443 for HTTPS.
      */
     int port();
 
 
     /*
-     * Set the user-agent, if any.
+     * Get the user-agent, if one hasn't been set it will be created
+     * based upon the MAC-address of the board.
+     */
+    const char *getAgent();
+
+    /*
+     * Set the user-agent to the specified string.
      */
     void setAgent(const char *userAgent);
 

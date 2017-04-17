@@ -19,19 +19,16 @@
 /*
  * Constructor.  Called with the URL to fetch.
  */
-UrlFetcher::UrlFetcher(char *url)
+UrlFetcher::UrlFetcher(const char *url)
 {
     m_url = strdup(url);
 }
 
 /*
- * Constructor.  Called with the URL to fetch.
+ * Destructor.
+ *
+ * Free any strings we've copied.
  */
-UrlFetcher::UrlFetcher(String url)
-{
-    m_url = strdup(url.c_str());
-}
-
 UrlFetcher::~UrlFetcher()
 {
     if (m_url)
@@ -81,6 +78,36 @@ int UrlFetcher::port()
         return 443;
     else
         return 80;
+}
+
+/*
+ * Get the user-agent, if one hasn't been set it will be created
+ * based upon the MAC-address of the board.
+ */
+const char *UrlFetcher::getAgent()
+{
+    if (m_user_agent == NULL)
+    {
+        //
+        // User-Agent will have the MAC address in it, for
+        // identification-purposes
+        //
+        uint8_t mac_array[6];
+        WiFi.macAddress(mac_array);
+
+        char tmp[128];
+        snprintf(tmp, sizeof(tmp) - 1, "User-Agent: arduino-%02X:%02X:%02X:%02X:%02X:%02X/1.0",
+                 mac_array[0],
+                 mac_array[1],
+                 mac_array[2],
+                 mac_array[3],
+                 mac_array[4],
+                 mac_array[5]
+                );
+        m_user_agent = strdup(tmp);
+    }
+
+    return (m_user_agent);
 }
 
 /*
@@ -147,38 +174,6 @@ void UrlFetcher::fetch()
         m_client = new WiFiClient;
 
 
-    /*
-     * If the user has set a user-agent then use it
-     * if not build one based on the MAC address of the
-     * board.
-     */
-    char ua[128];
-    memset(ua, '\0', sizeof(ua));
-
-    if (m_user_agent)
-    {
-        snprintf(ua, sizeof(ua) - 1, "User-Agent: %s", m_user_agent);
-    }
-    else
-    {
-        //
-        // User-Agent will have the MAC address in it, for
-        // identification-purposes
-        //
-        uint8_t mac_array[6];
-        WiFi.macAddress(mac_array);
-
-        snprintf(ua, sizeof(ua) - 1, "User-Agent: arduino-%02X:%02X:%02X:%02X:%02X:%02X/1.0",
-                 mac_array[0],
-                 mac_array[1],
-                 mac_array[2],
-                 mac_array[3],
-                 mac_array[4],
-                 mac_array[5]
-                );
-    }
-
-
     bool finishedHeaders = false;
     bool currentLineIsBlank = true;
     bool gotResponse = false;
@@ -197,7 +192,8 @@ void UrlFetcher::fetch()
         m_client->println(" HTTP/1.0");
         m_client->print("Host: ");
         m_client->println(m_host);
-        m_client->println(ua);
+        m_client->print("User-Agent: ");
+        m_client->println(getAgent());
         m_client->println("");
 
         now = millis();
