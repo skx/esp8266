@@ -209,7 +209,7 @@ void UrlFetcher::fetch()
             while (m_client->available())
             {
                 char c = m_client->read();
-                Serial.print(c);
+
                 if (finishedHeaders)
                 {
                     m_body = m_body + c;
