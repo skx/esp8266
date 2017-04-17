@@ -301,7 +301,7 @@ void setup()
     //
     // Show a message.
     //
-    draw_line(0, "Booting up ..");
+    draw_line(0, "Starting up ..");
 
     //
     // Handle Connection.
@@ -494,9 +494,14 @@ void loop()
 
         char line[NUM_COLS + 1];
 
-        draw_line(0, "IP Address:");
-        draw_line(1, WiFi.localIP().toString().c_str());
+        // Line 0 - About
+        draw_line(0, "Steve Kemp - Trams");
 
+        // Line 1 - IP
+        snprintf(line, NUM_COLS, "IP: %s", WiFi.localIP().toString().c_str());
+        draw_line(1, line);
+
+        // Line 2 - Timezone
         if (time_zone_offset > 0)
             snprintf(line, NUM_COLS, "Timezone: +%d", time_zone_offset);
         else if (time_zone_offset < 0)
@@ -506,6 +511,7 @@ void loop()
 
         draw_line(2, line);
 
+        // Line 3 - Tram ID
         snprintf(line, NUM_COLS, "Tram ID : %s", tram_stop);
         draw_line(3, line);
 
