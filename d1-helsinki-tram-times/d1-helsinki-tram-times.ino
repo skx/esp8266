@@ -982,7 +982,7 @@ void serveHTML(WiFiClient client)
     client.println("<li><a href=\"https://steve.fi/Hardware/\">Steve's Projects</a></li>");
     client.println("</ul>");
     client.println("</nav>");
-    client.println("<div class=\"container-fluid\" style=\"border:1px solid red !important\">");
+    client.println("<div class=\"container-fluid\">");
 
     // Start of body
     // Row
