@@ -95,13 +95,52 @@ void UrlFetcher::setAgent(const char *userAgent)
 }
 
 /*
+ * Return the body-contents of the remote URL.
+ *
+ * We only fetch it once regardless of how many times it is invoked.
+ */
+String UrlFetcher::body()
+{
+    if (! m_fetched)
+    {
+        fetch();
+        m_fetched = true;
+    }
+
+    return (m_body);
+}
+
+/*
+ * Return the headers of the remote URL.
+ *
+ * We only fetch it once regardless of how many times it is invoked.
+ */
+String UrlFetcher::headers()
+{
+    if (! m_fetched)
+    {
+        fetch();
+        m_fetched = true;
+    }
+
+    return (m_headers);
+}
+
+
+/*
  * Fetch the contents of the remote URL.
  */
-String UrlFetcher::fetch(long timeout)
+void UrlFetcher::fetch()
 {
+    /*
+     * If we've not already parsed into Host + Path, do so.
+     */
     if (strlen(m_host) < 1)
         parse();
 
+    /*
+     * Create the appropriate client-object.
+     */
     if (is_secure())
         m_client = new WiFiClientSecure();
     else
@@ -139,20 +178,23 @@ String UrlFetcher::fetch(long timeout)
                 );
     }
 
-    String headers = "";
-    String body = "";
+
     bool finishedHeaders = false;
     bool currentLineIsBlank = true;
     bool gotResponse = false;
     long now;
 
+    /*
+     * Remove any old state, if present.
+     */
+    m_headers = "";
+    m_body = "";
 
     if (m_client->connect(m_host, port()))
     {
         m_client->print("GET ");
         m_client->print(m_path);
-        m_client->println(" HTTP/1.1");
-
+        m_client->println(" HTTP/1.0");
         m_client->print("Host: ");
         m_client->println(m_host);
         m_client->println(ua);
@@ -161,22 +203,23 @@ String UrlFetcher::fetch(long timeout)
         now = millis();
 
         // checking the timeout
-        while (millis() - now < timeout)
+        while (millis() - now < 5000)
         {
+            // Read a single character
             while (m_client->available())
             {
                 char c = m_client->read();
-
+                Serial.print(c);
                 if (finishedHeaders)
                 {
-                    body = body + c;
+                    m_body = m_body + c;
                 }
                 else
                 {
                     if (currentLineIsBlank && c == '\n')
                         finishedHeaders = true;
                     else
-                        headers = headers + c;
+                        m_headers = m_headers + c;
                 }
 
                 if (c == '\n')
@@ -194,7 +237,6 @@ String UrlFetcher::fetch(long timeout)
         }
     }
 
-    return (body);
 }
 
 

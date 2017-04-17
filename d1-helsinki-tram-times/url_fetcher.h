@@ -7,7 +7,13 @@
  * Usage is as simple as:
  *
  *   UrlFetcher foo( "http://steve.fi/robots.txt" );
- *   String body = foo.fetch()
+ *
+ *   String body    = foo.body();
+ *   String headers = foo.headers();
+ *
+ * If you wish you can set a custom user-agent, via:
+ *
+ *    foo.setAgent( "moi.kissa/3.14" );
  *
  */
 class UrlFetcher
@@ -28,30 +34,46 @@ public:
      */
     ~UrlFetcher();
 
+
     /*
-     * Get the host of the URL.
+     * Return the headers of the remote URL.
+     *
+     * We only fetch it once regardless of how many times it is invoked.
+     */
+    String headers();
+
+
+    /*
+     * Return the body-contents of the remote URL.
+     *
+     * We only fetch it once regardless of how many times it is invoked.
+     */
+    String body();
+
+
+    /*
+     * Get the host-part of the URL.
      */
     char *getHost();
+
 
     /*
      * Get the path of the URL.
      */
     char *getPath();
 
-    /*
-     * Get the contents of the URL.
-     */
-    String fetch(long timeout = 5000);
 
     /*
      * Is the URL SSL-based?
      */
     bool is_secure();
 
+
     /*
      * The port to use - 80 for HTTP, 443 for SSL
      */
     int port();
+
 
     /*
      * Set the user-agent, if any.
@@ -64,6 +86,12 @@ private:
      * Parse URL into "host" + "path"
      */
     void parse();
+
+    /*
+     * Perform the fetch of the remote URL, recording
+     * the response-headers and the body.
+     */
+    void fetch();
 
     /*
      * A copy of the URL we were constructed with.
@@ -92,6 +120,22 @@ private:
      *
      */
     WiFiClient *m_client;
+
+    /*
+     * Have we fetched?
+     */
+    bool m_fetched = false;
+
+    /*
+     * The headers returned from the remote HTTP-fetch.
+     */
+    String m_headers;
+
+    /*
+     * The body returned from the remote HTTP-fetch.
+     */
+    String m_body;
+
 };
 
-#endif
+#endif /* URL_FETCHER_H */

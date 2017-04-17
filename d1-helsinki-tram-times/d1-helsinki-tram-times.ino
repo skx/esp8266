@@ -798,7 +798,7 @@ void fetch_tram_times()
     // Fetch the contents of the remote URL.
     //
     UrlFetcher client(url);
-    String body = client.fetch();
+    String body = client.body();
 
     //
     // Parse the returned data and process it.
