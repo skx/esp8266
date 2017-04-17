@@ -795,14 +795,36 @@ void fetch_tram_times()
     url += tram_stop;
 
     //
+    // Show what we're going to do.
+    //
+    DEBUG_LOG("Fetching ");
+    DEBUG_LOG(url);
+    DEBUG_LOG("\n");
+
+    //
     // Fetch the contents of the remote URL.
     //
     UrlFetcher client(url.c_str());
-    String body = client.body();
+    int code = client.code();
+
+    //
+    // Log the status-code
+    //
+    DEBUG_LOG("HTTP Status-Code was ");
+    DEBUG_LOG(code);
+    DEBUG_LOG("\n");
+
+    //
+    // Log the status-line
+    //
+    DEBUG_LOG("STATUS: ");
+    DEBUG_LOG(client.status());
+    DEBUG_LOG("\n");
 
     //
     // Parse the returned data and process it.
     //
+    String body = client.body();
     update_tram_times(body.c_str());
 }
 
