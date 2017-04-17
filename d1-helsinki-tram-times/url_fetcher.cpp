@@ -72,6 +72,9 @@ char *UrlFetcher::getPath()
     return (m_path);
 }
 
+/*
+ * Return the port we'll connect to, 80 for HTTP, 443 for HTTPS.
+ */
 int UrlFetcher::port()
 {
     if (is_secure())
