@@ -525,7 +525,9 @@ void loop()
     //
     // Format the time & date in the first row.
     //
-    snprintf(screen[0], NUM_COLS, "%02d:%02d:%02d %2d %s", hur, min, sec, day(t), monthShortStr(month(t)));
+    char *w_day = strdup(dayShortStr(weekday(t)));
+    snprintf(screen[0], NUM_COLS, "%02d:%02d:%02d %s %2d %s", hur, min, sec, w_day, day(t), monthShortStr(month(t)));
+    free(w_day);
 
     //
     // Every two minutes we'll update the departure times.
