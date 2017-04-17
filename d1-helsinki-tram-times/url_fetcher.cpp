@@ -35,7 +35,16 @@ UrlFetcher::UrlFetcher(String url)
 UrlFetcher::~UrlFetcher()
 {
     if (m_url)
+    {
         free(m_url);
+        m_url = NULL;
+    }
+
+    if (m_client)
+    {
+        delete(m_client);
+        m_client = NULL;
+    }
 }
 
 /*
@@ -60,6 +69,15 @@ char *UrlFetcher::getPath()
     return (m_path);
 }
 
+int UrlFetcher::port()
+{
+    if (is_secure())
+        return 443;
+    else
+        return 80;
+}
+
+
 /*
  * Fetch the contents of the remote URL.
  */
@@ -69,15 +87,10 @@ String UrlFetcher::fetch()
         parse();
 
     if (is_secure())
-        return (secure_fetch());
+        m_client = new WiFiClientSecure();
     else
-        return (http_fetch());
-}
+        m_client = new WiFiClient;
 
-String UrlFetcher::secure_fetch()
-{
-
-    WiFiClientSecure client;
 
     String headers = "";
     String body = "";
@@ -104,25 +117,25 @@ String UrlFetcher::secure_fetch()
             );
 
 
-    if (client.connect(m_host, 443))
+    if (m_client->connect(m_host, port()))
     {
-        client.print("GET ");
-        client.print(m_path);
-        client.println(" HTTP/1.1");
+        m_client->print("GET ");
+        m_client->print(m_path);
+        m_client->println(" HTTP/1.1");
 
-        client.print("Host: ");
-        client.println(m_host);
-        client.println(tmp);
-        client.println("");
+        m_client->print("Host: ");
+        m_client->println(m_host);
+        m_client->println(tmp);
+        m_client->println("");
 
         now = millis();
 
         // checking the timeout
         while (millis() - now < 3000)
         {
-            while (client.available())
+            while (m_client->available())
             {
-                char c = client.read();
+                char c = m_client->read();
 
                 if (finishedHeaders)
                 {
@@ -162,93 +175,6 @@ String UrlFetcher::secure_fetch()
     return (body);
 }
 
-String UrlFetcher::http_fetch()
-{
-
-    WiFiClient client;
-
-    String headers = "";
-    String body = "";
-    bool finishedHeaders = false;
-    bool currentLineIsBlank = true;
-    bool gotResponse = false;
-    long now;
-
-    //
-    // User-Agent will have the MAC address in it, for
-    // identification-purposes
-    //
-    uint8_t mac_array[6];
-    static char tmp[64];
-
-    WiFi.macAddress(mac_array);
-    snprintf(tmp, sizeof(tmp) - 1, "User-Agent: %02X:%02X:%02X:%02X:%02X:%02X/1.0",
-             mac_array[0],
-             mac_array[1],
-             mac_array[2],
-             mac_array[3],
-             mac_array[4],
-             mac_array[5]
-            );
-
-
-    if (client.connect(m_host, 80))
-    {
-        client.print("GET ");
-        client.print(m_path);
-        client.println(" HTTP/1.1");
-
-        client.print("Host: ");
-        client.println(m_host);
-        client.println(tmp);
-        client.println("");
-
-        now = millis();
-
-        // checking the timeout
-        while (millis() - now < 3000)
-        {
-            while (client.available())
-            {
-                char c = client.read();
-
-                if (finishedHeaders)
-                {
-                    body = body + c;
-                }
-                else
-                {
-                    if (currentLineIsBlank && c == '\n')
-                    {
-                        finishedHeaders = true;
-                    }
-                    else
-                    {
-                        headers = headers + c;
-                    }
-                }
-
-                if (c == '\n')
-                {
-                    currentLineIsBlank = true;
-                }
-                else if (c != '\r')
-                {
-                    currentLineIsBlank = false;
-                }
-
-                //marking we got a response
-                gotResponse = true;
-
-            }
-
-            if (gotResponse)
-                break;
-        }
-    }
-
-    return (body);
-}
 
 /*
  * Parse the URL into "host" + "path".
