@@ -1,5 +1,5 @@
 //
-//   Helsinki Tram Time Clock - https://steve.fi/Hardware/
+//   Helsinki Tram-Departure Display - https://steve.fi/Hardware/
 //
 //   This is a simple program which uses WiFi & an LCD display
 //   to show useful information.
@@ -174,7 +174,7 @@ WiFiServer server(80);
 char tram_stop[12] = { '\0' };
 
 //
-// The default API end-point
+// The API end-point we poll for display-purposes
 //
 char api_end_point[256] = { '\0' };
 
@@ -322,7 +322,10 @@ void setup()
     // Now we can start our HTTP server
     //
     server.begin();
-    DEBUG_LOG("HTTP-Server started\n");
+    DEBUG_LOG("HTTP-Server started on ");
+    DEBUG_LOG("http://");
+    DEBUG_LOG(WiFi.localIP().toString().c_str());
+    DEBUG_LOG("\n");
 
     //
     // The final step is to allow over the air updates
@@ -593,6 +596,10 @@ void loop()
         {
             backlight = true;
             lcd.setBacklight(true);
+
+            // Redirect to the server-root
+            redirectIndex(client);
+            return;
         }
 
         // Turn off the backlight?
@@ -600,6 +607,10 @@ void loop()
         {
             backlight = false;
             lcd.setBacklight(false);
+
+            // Redirect to the server-root
+            redirectIndex(client);
+            return;
         }
 
         // Change the tram-stop?
@@ -632,6 +643,10 @@ void loop()
                 // So we've changed the tram ID we should refresh the date.
                 fetch_tram_times();
             }
+
+            // Redirect to the server-root
+            redirectIndex(client);
+            return;
         }
 
         // Change the API end-point
@@ -665,6 +680,10 @@ void loop()
                 // So we've changed the tram ID we should refresh the date.
                 fetch_tram_times();
             }
+
+            // Redirect to the server-root
+            redirectIndex(client);
+            return;
         }
 
         // Change the time-zone?
@@ -699,11 +718,14 @@ void loop()
                 // Force a resync of the timezone, via a resync of the time.
                 setSyncProvider(getNtpTime);
             }
+
+            // Redirect to the server-root
+            redirectIndex(client);
+            return;
         }
 
         // Return a simple response
         serveHTML(client);
-        delay(10);
     }
 
     //
@@ -827,25 +849,33 @@ void fetch_tram_times()
     UrlFetcher client(url.c_str());
     int code = client.code();
 
-    //
-    // Log the status-code
-    //
-    DEBUG_LOG("HTTP Status-Code was ");
-    DEBUG_LOG(code);
-    DEBUG_LOG("\n");
+    if (code == 200)
+    {
 
-    //
-    // Log the status-line
-    //
-    DEBUG_LOG("STATUS: ");
-    DEBUG_LOG(client.status());
-    DEBUG_LOG("\n");
+        //
+        // Parse the returned data and process it.
+        //
+        String body = client.body();
 
-    //
-    // Parse the returned data and process it.
-    //
-    String body = client.body();
-    update_tram_times(body.c_str());
+        if (body.length() > 0)
+            update_tram_times(body.c_str());
+    }
+    else
+    {
+        //
+        // Log the status-code
+        //
+        DEBUG_LOG("HTTP-Request failed, status-Code was ");
+        DEBUG_LOG(code);
+        DEBUG_LOG("\n");
+
+        //
+        // Log the status-line
+        //
+        DEBUG_LOG("STATUS: ");
+        DEBUG_LOG(client.status());
+        DEBUG_LOG("\n");
+    }
 }
 
 
@@ -948,6 +978,18 @@ void sendNTPpacket(IPAddress &address)
     Udp.beginPacket(address, 123); //NTP requests are to port 123
     Udp.write(packetBuffer, NTP_PACKET_SIZE);
     Udp.endPacket();
+}
+
+
+//
+// Serve a redirect to the server-root
+//
+void redirectIndex(WiFiClient client)
+{
+    client.println("HTTP/1.1 302 Found");
+    client.print("Location: http://");
+    client.print(WiFi.localIP().toString().c_str());
+    client.println("/");
 }
 
 
