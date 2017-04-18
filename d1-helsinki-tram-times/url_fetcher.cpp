@@ -64,6 +64,16 @@ char *UrlFetcher::getHost()
     if (strlen(m_host) < 1)
         parse();
 
+    /*
+     * Still empty?  That's a bug
+     */
+    if (strlen(m_host) < 1)
+    {
+        Serial.println("BUG - UrlFetcher::getHost - empty host");
+        return NULL;
+    }
+
+
     return (m_host);
 }
 
@@ -74,6 +84,15 @@ char *UrlFetcher::getPath()
 {
     if (strlen(m_host) < 1)
         parse();
+
+    /*
+     * Still empty?  That's a bug
+     */
+    if (strlen(m_host) < 1)
+    {
+        Serial.println("BUG - UrlFetcher::getPath - empty host");
+        return NULL;
+    }
 
     return (m_path);
 }
@@ -146,6 +165,7 @@ String UrlFetcher::body()
     return (m_body);
 }
 
+
 /*
  * Return the headers of the remote URL.
  *
@@ -176,6 +196,12 @@ int UrlFetcher::code()
         fetch();
         m_fetched = true;
     }
+
+    //
+    // If we failed to do the fetch then we're bogus
+    //
+    if (m_headers.length() == 0)
+        return -1;
 
     //
     // Make sure we have something useful.
@@ -271,10 +297,24 @@ char *UrlFetcher::status()
         }
 
         //
+        // If we failed to do the fetch then we're bogus
+        //
+        if (m_headers.length() == 0)
+        {
+            m_status = strdup("HTTP/1.0 -1 FAILED-FETCH");
+            return (m_status);
+        }
+
+        //
         // Get the response-headers, which will have the
         // status-line in the first .. line.
         //
         const char *response = m_headers.c_str();
+
+        if (response == NULL)
+        {
+            return NULL;
+        }
 
         //
         // Find the first newline.
@@ -302,11 +342,28 @@ char *UrlFetcher::status()
  */
 void UrlFetcher::fetch()
 {
+
+    /*
+     * Remove any old state, if present.
+     */
+    m_headers = "";
+    m_body = "";
+
     /*
      * If we've not already parsed into Host + Path, do so.
      */
     if (strlen(m_host) < 1)
         parse();
+
+
+    /*
+     * Still empty?  That's a bug
+     */
+    if (strlen(m_host) < 1)
+    {
+        Serial.println("BUG - UrlFetcher::fetch - empty host");
+        return;
+    }
 
     /*
      * Create the appropriate client-object.
@@ -319,14 +376,7 @@ void UrlFetcher::fetch()
 
     bool finishedHeaders = false;
     bool currentLineIsBlank = true;
-    bool gotResponse = false;
     long now;
-
-    /*
-     * Remove any old state, if present.
-     */
-    m_headers = "";
-    m_body = "";
 
     if (m_client->connect(m_host, port()))
     {
@@ -337,45 +387,55 @@ void UrlFetcher::fetch()
         m_client->println(m_host);
         m_client->print("User-Agent: ");
         m_client->println(getAgent());
+        m_client->println("Connection: close");
         m_client->println("");
 
         now = millis();
 
-        // checking the timeout
-        while (millis() - now < 5000)
+        //
+        // Test for timeout waiting for the first byte.
+        //
+        while (m_client->available() == 0)
         {
-            // Read a single character
-            while (m_client->available())
+            if (millis() - now > 15000)
             {
-                char c = m_client->read();
+                Serial.println(">>> Client Timeout !");
+                m_client->stop();
+                return;
+            }
+        }
 
-                if (finishedHeaders)
-                {
-                    m_body = m_body + c;
-                }
+        //
+        // Now we hope we'll have smooth-sailing, and we'll
+        // read a single character until we've got it all
+        //
+        while (m_client->available())
+        {
+            char c = m_client->read();
+
+            if (finishedHeaders)
+            {
+                m_body = m_body + c;
+            }
+            else
+            {
+                if (currentLineIsBlank && c == '\n')
+                    finishedHeaders = true;
                 else
-                {
-                    if (currentLineIsBlank && c == '\n')
-                        finishedHeaders = true;
-                    else
-                        m_headers = m_headers + c;
-                }
-
-                if (c == '\n')
-                    currentLineIsBlank = true;
-                else if (c != '\r')
-                    currentLineIsBlank = false;
-
-                //marking we got a response
-                gotResponse = true;
-
+                    m_headers = m_headers + c;
             }
 
-            if (gotResponse)
-                break;
-        }
-    }
+            if (c == '\n')
+                currentLineIsBlank = true;
+            else if (c != '\r')
+                currentLineIsBlank = false;
 
+            // Wait for more packetses
+            delay(1);
+        }
+
+        m_client->stop();
+    }
 }
 
 
@@ -403,7 +463,10 @@ void UrlFetcher::parse()
         strncpy(m_host, host_start, host_end - host_start);
         strcpy(m_path, host_end);
     }
-
+    else
+    {
+        Serial.println("BUG - UrlFetcher::parse - Bogus URL");
+    }
 }
 
 
