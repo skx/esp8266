@@ -7,6 +7,18 @@ The code is self-contained, and described on this project homepage:
 
 * https://steve.fi/Hardware/helsinki-tram-times/
 
+# Images
+
+These images show the final result:
+
+![Components in a case](images/case.fitted.jpg)
+![Usual-view](images/tram.boxed.jpg)
+![Info-view](images/tram.info.jpg)
+
+This is the first time I've had anything 3d-printed, but the process was pretty simple, because somebody else designed the case and I could download that design for free!
+
+* http://blog.steve.fi/3d_printing_is_cool.html
+
 
 # Configuration
 
