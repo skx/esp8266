@@ -13,7 +13,6 @@ These images show the final result:
 
 ![Components in a case](images/case.fitted.jpg)
 ![Usual-view](images/tram.boxed.jpg)
-![Info-view](images/tram.info.jpg)
 
 This is the first time I've had anything 3d-printed, but the process was pretty simple, because somebody else designed the case and I could download that design for free!
 
@@ -57,3 +56,7 @@ If you wire a button between D0 & D8 you gain additional functionality:
 * Short-Press the button to toggle the backlight.
 * Double-click to show information.
 * Long-Press the button to resync the date/time __and__ the tram-data.
+
+The info-page looks like this:
+
+![Info-view](images/tram.info.jpg)
