@@ -736,6 +736,77 @@ void loop()
 
 
 //
+// Parse a CSV line which has the following form:
+//
+//  NNNNN,HH:MM:SS,NAME-STRING
+//
+// We want to show only the ID + time.
+//
+// To cut down on the number of columns used we'll
+// ignore the seconds, even though they are present.
+//
+// For Trams the ID (NNNN) will be two digits, such
+// as "04", "07", "10", "4B", but for busses the
+// routes have longer names.
+//
+void parse_line(const char *pch, int line)
+{
+    //
+    // Look for the first comma, which seperates
+    // the tram/bus-number and the time.
+    //
+    // We don't know how long that bus/tram ID
+    // will be.  But we'll assume <=6 characters
+    // later on.
+    //
+    char *comma = strchr(pch, ',');
+
+    //
+    // Did we not find it?
+    //
+    if (comma == NULL)
+    {
+        DEBUG_LOG("Malformed line - zero commas!\n");
+        return ;
+    }
+
+    //
+    // So our line-ID is contained between pch & comma.
+    //
+    // Copy it, capping it if we need to.
+    //
+    char id[6] = {'\0'};
+    memset(id, '\0', sizeof(id));
+
+    strncpy(id, pch, (comma - pch) >= sizeof(id) ? sizeof(id) - 1 : (comma - pch));
+
+
+    //
+    // Now we have comma pointing to ",HH:MM:SS,DESCRIPTION-HERE"
+    //
+    // We want to extract the time, and save that away.
+    //
+    //
+    // If our time is HH:MM:SS then c + 9 will be a comma
+    //
+    char tm[6] = {'\0'};
+
+    if (comma[9] == ',')
+    {
+        //
+        // Copy just the HH:MM
+        //
+        strncpy(tm, comma + 1 , 5);
+    }
+
+    //
+    // Now malloc some memory to return to the caller.
+    //
+    snprintf(screen[line], NUM_COLS - 1, "  Line %s @ %s", id, tm);
+
+}
+
+//
 // Given a bunch of CSV, containing departures,
 // we parse this and update the screen-array.
 //
@@ -768,38 +839,19 @@ void update_tram_times(const char *txt)
             while (pch[0] == '\n' || pch[0] == '\r')
                 pch += 1;
 
+            //
+            // Show what we're operating upon
+            //
             DEBUG_LOG("LINE: '");
             DEBUG_LOG(pch);
             DEBUG_LOG("'\n");
 
             //
-            // The time & line-number.
+            // Parse the line and update the screen-buffer with the result
             //
-            char tm[6] = { '\0' };
-            char ln[3] = { '\0' };
+            parse_line(pch, line);
 
-            //
-            // This is sleazy, but efficient.
-            //
-            ln[0] = pch[0];
-            ln[1] = pch[1];
-            ln[2] = '\0';
-
-            //
-            // This is sleazy, but efficient.
-            //
-            tm[0] = pch[3];  // 1
-            tm[1] = pch[4];  // 2
-            tm[2] = pch[5];  // :
-            tm[3] = pch[6];  // 3
-            tm[4] = pch[7];  // 4
-            tm[5] = '\0';
-
-            //
-            // Format into our screen-buffer
-            //
-            snprintf(screen[line], NUM_COLS - 1, "  Tram %s @ %s", ln, tm);
-
+            // Show what we generated
             DEBUG_LOG("Generated line ");
             DEBUG_LOG(line);
             DEBUG_LOG(" '");
