@@ -10,33 +10,26 @@
 //   can't drift too much in that time.
 //
 //   Each additional line of the display will show the departure
-//   of the next tram from the chosen stop.
+//   of the next tram from the chosen stop.  For example we'd
+//   we would see something like this on a 4x20 LCD display:
 //
-//   One a two-line display we thus see output like this:
-//
-//      ####################
-//      # 11:12:13 1 Feb   #
-//      # Tram 10 @ 11:17  #
-//      ####################
-//
-//   On a four-line display we'd see something else:
-//
-//      ####################
-//      # 11:12:13 1 Feb   #
-//      # Tram 4B @ 11:17  #
-//      # Tram 7B @ 11:35  #
-//      # Tram 10 @ 11:45  #
-//      ####################
+//      #######################
+//      # 11:12:13 Fri 21 Apr #
+//      #   Line 4B @ 11:17   #
+//      #   Line 7B @ 11:35   #
+//      #   Line 10 @ 11:45   #
+//      #######################
 //
 //
 //   There is a simple HTTP-server which is running on port 80, which
-//   will mirror the LCD-data, and allow changes to be made.
+//   will mirror the LCD-contents, and allow changes to be made to the
+//   device.
 //
-//   The built-in HTTP-server can be used to change the time-zone
-//   offset, the tram-stop, and toggle the backlight.
+//   For example the user can change the time-zone offset, the tram-stop,
+//   toggle the backlight, or even change the remote URL being polled.
 //
-//   Timezone-data, and tram-ID, will be persisted to flash memory, so
-//   that changes will survive reboots.
+//   The user-selectable-changes will be persisted to flash memory, so
+//   they survive reboots.
 //
 //   Because the Helsinki Tram API is a complex GraphQL-bease we're getting
 //   data via a simple helper:
@@ -50,11 +43,14 @@
 //    If you wire a button between D0 & D8 you can control the device
 //    using it:
 //
-//      Single press & release: Toggle backlight
+//      Single press & release
+//         Toggle the backlight.
 //
-//      Double-Click: show IP and other data.
+//      Double-Click
+//         Show IP and other data.
 //
-//      Long-press & release: resync time/data.
+//      Long-press & release
+//         Resync time & departure-data.
 //
 //
 //   Steve
@@ -67,7 +63,7 @@
 //
 // Used for the Access-Point name, and for OTA-identification.
 //
-#define PROJECT_NAME    "TRAM-TIMES"
+#define PROJECT_NAME "TRAM-TIMES"
 
 
 //
@@ -436,9 +432,122 @@ void access_point_callback(WiFiManager* myWiFiManager)
 void loop()
 {
     //
-    // Process the button.
+    // Keep the previous time, to avoid needless re-draws
+    //
+    static char prev_time[NUM_COLS] = { '\0'};
+
+
+    //
+    // Handle any pending over the air updates.
+    //
+    ArduinoOTA.handle();
+
+    //
+    // Process the button - looking for clicks, double-clicks,
+    // and long-clicks
     //
     button.tick();
+
+    //
+    // Handle any pending clicks here.
+    //
+    handlePendingButtons();
+
+    //
+    // Get the current time.
+    //
+    // We save this so that we can test if we need to update the
+    // tram-time, which we do every two minutes.
+    //
+    time_t t = now();
+    int hur  = hour(t);
+    int min  = minute(t);
+    int sec  = second(t);
+
+    //
+    // Format the time & date in the first row.
+    //
+    // NOTE: We need to copy the day of the week, as the time-library
+    // uses a static-buffer.  Sigh.
+    //
+    char *w_day = strdup(dayShortStr(weekday(t)));
+    snprintf(screen[0], NUM_COLS, "%02d:%02d:%02d %s %2d %s 2017", hur, min, sec, w_day, day(t), monthShortStr(month(t)));
+
+    //
+    // Free the copied day-name
+    //
+    free(w_day);
+
+
+    //
+    // Every two minutes we'll update the departure times.
+    //
+    // We also do it immediately the first time we're run,
+    // when there is no pending time available.
+    //
+    if (((min % 2 == 0) && (sec == 0)) ||
+            (strlen(screen[1]) == 0))
+        fetch_tram_times();
+
+
+
+    //
+    // Now draw all the rows - correctly doing this
+    // after the previous step might have updated
+    // the display.
+    //
+    // That avoids showing outdated information, albeit
+    // information that is only outdated for <1 second!
+    //
+    // NOTE: We delay() for less than a second in this function
+    // so we cheat here, only updating the LCD if the currently
+    // formatted time is different to that we set in the past.
+    //
+    // i.e. We don't re-draw the screen unless the time has changed.
+    //
+    // If the real-time hasn't changed then the tram-arrival times
+    // haven't changed either, since that only updates every two minutes..
+    //
+    if (strcmp(prev_time, screen[0]) != 0)
+    {
+        for (int i = 0; i < NUM_ROWS; i++)
+            draw_line(i, screen[i]);
+
+        //
+        // Keep the current time in our local/static buffer.
+        //
+        strcpy(prev_time, screen[0]);
+    }
+
+
+    //
+    // Check if a client has connected to our HTTP-server.
+    //
+    // If so handle it.
+    //
+    // (This allows changing the stop, timezone, backlight, etc.)
+    //
+    WiFiClient client = server.available();
+
+    if (client)
+        processHTTPRequest(client);
+
+    //
+    // Now sleep, to avoid updating our LCD too often.
+    //
+    delay(20);
+}
+
+
+//
+// We bind our button such that short-clicks, long-clicks,
+// and double-clicks will invoke a call-back.
+//
+// The callbacks just record the pending state, and here we
+// process any of them that were raised.
+//
+void handlePendingButtons()
+{
 
     //
     // If we have a pending-short-click then handle it
@@ -501,317 +610,28 @@ void loop()
         delay(2500);
     }
 
-    //
-    // Keep the previous time, to avoid needless re-draws
-    //
-    static char prev_time[NUM_COLS] = { '\0'};
-
-    //
-    // Handle any pending over the air updates.
-    //
-    ArduinoOTA.handle();
-
-    //
-    // Get the current time.
-    //
-    // We save this so that we can test if we need to update the
-    // tram-time, which we do every two minutes.
-    //
-    time_t t = now();
-    int hur  = hour(t);
-    int min  = minute(t);
-    int sec  = second(t);
-
-    //
-    // Format the time & date in the first row.
-    //
-    // NOTE: We need to copy the day of the week, as the time-library
-    // uses a static-buffer.  Sigh.
-    //
-    char *w_day = strdup(dayShortStr(weekday(t)));
-    snprintf(screen[0], NUM_COLS, "%02d:%02d:%02d %s %2d %s 2017", hur, min, sec, w_day, day(t), monthShortStr(month(t)));
-
-    //
-    // Free the copied day-name
-    //
-    free(w_day);
-
-
-    //
-    // Every two minutes we'll update the departure times.
-    //
-    // We also do it immediately the first time we're run,
-    // when there is no pending time available.
-    //
-    if (((min % 2 == 0) && (sec == 0)) ||
-            (strlen(screen[1]) == 0))
-        fetch_tram_times();
-
-
-
-    //
-    // Now draw all the rows - correctly doing this
-    // after the previous step might have updated
-    // the display.
-    //
-    // That avoids showing outdated information, albeit
-    // information that is only outdated for <1 second!
-    //
-    // NOTE: We delay() for less than a second in this function
-    // so we cheat here, only updating the LCD if the currently
-    // formatted time is different to that we set in the past.
-    //
-    // i.e. We don't re-draw the screen unless the time has changed.
-    //
-    // If the real-time hasn't changed then the tram-arrival times
-    // haven't changed either, since that only updates every two minutes..
-    //
-    if (strcmp(prev_time, screen[0]) != 0)
-    {
-        for (int i = 0; i < NUM_ROWS; i++)
-            draw_line(i, screen[i]);
-
-        strcpy(prev_time, screen[0]);
-    }
-
-
-    //
-    // Check if a client has connected to our HTTP-server.
-    //
-    WiFiClient client = server.available();
-
-    // If so.
-    if (client)
-    {
-        // Wait until the client sends some data
-        while (client.connected() && !client.available())
-            delay(1);
-
-        // Read the first line of the request
-        String request = client.readStringUntil('\r');
-        client.flush();
-
-        // Turn on the backlight?
-        if (request.indexOf("/ON") != -1)
-        {
-            backlight = true;
-            lcd.setBacklight(true);
-
-            // Redirect to the server-root
-            redirectIndex(client);
-            return;
-        }
-
-        // Turn off the backlight?
-        if (request.indexOf("/OFF") != -1)
-        {
-            backlight = false;
-            lcd.setBacklight(false);
-
-            // Redirect to the server-root
-            redirectIndex(client);
-            return;
-        }
-
-        // Change the tram-stop?
-        if (request.indexOf("/?stop=") != -1)
-        {
-            char *pattern = "/?stop=";
-            char *s = strstr(request.c_str(), pattern);
-
-            if (s != NULL)
-            {
-
-                // Empty the tram ID
-                memset(tram_stop, '\0', sizeof(tram_stop));
-
-                // Skip past the pattern.
-                s += strlen(pattern);
-
-                // Add characters until we come to a terminating character.
-                for (int i = 0; i < strlen(s); i++)
-                {
-                    if ((s[i] != ' ') && (s[i] != '&'))
-                        tram_stop[strlen(tram_stop)] = s[i];
-                    else
-                        break;
-                }
-
-                // Record the data in a file.
-                write_file("/tram.stop", tram_stop);
-
-                // So we've changed the tram ID we should refresh the date.
-                fetch_tram_times();
-            }
-
-            // Redirect to the server-root
-            redirectIndex(client);
-            return;
-        }
-
-        // Change the API end-point
-        if (request.indexOf("/?api=") != -1)
-        {
-            char *pattern = "/?api=";
-            char *s = strstr(request.c_str(), pattern);
-
-            if (s != NULL)
-            {
-                char tmp[256] = { '\0' };
-
-                // Skip past the pattern.
-                s += strlen(pattern);
-
-                // Add characters until we come to a terminating character.
-                for (int i = 0; i < strlen(s); i++)
-                {
-                    if ((s[i] != ' ') && (s[i] != '&'))
-                        tmp[strlen(tmp)] = s[i];
-                    else
-                        break;
-                }
-
-                // URL decode..
-                urldecode(tmp, api_end_point);
-
-                // Record the data in a file.
-                write_file("/tram.api", api_end_point);
-
-                // So we've changed the tram ID we should refresh the date.
-                fetch_tram_times();
-            }
-
-            // Redirect to the server-root
-            redirectIndex(client);
-            return;
-        }
-
-        // Change the time-zone?
-        if (request.indexOf("/?tz=") != -1)
-        {
-            char *pattern = "/?tz=";
-            char *s = strstr(request.c_str(), pattern);
-
-            if (s != NULL)
-            {
-                // Temporary holder for the timezone - as a string.
-                char tmp[10] = { '\0' };
-
-                // Skip past the pattern.
-                s += strlen(pattern);
-
-                // Add characters until we come to a terminating character.
-                for (int i = 0; i < strlen(s); i++)
-                {
-                    if ((s[i] != ' ') && (s[i] != '&'))
-                        tmp[strlen(tmp)] = s[i];
-                    else
-                        break;
-                }
-
-                // Record the data into a file.
-                write_file("/time.zone", tmp);
-
-                // Change the timezone now
-                time_zone_offset = atoi(tmp);
-
-                // Force a resync of the timezone, via a resync of the time.
-                setSyncProvider(getNtpTime);
-            }
-
-            // Redirect to the server-root
-            redirectIndex(client);
-            return;
-        }
-
-        // Return a simple response
-        serveHTML(client);
-    }
-
-    //
-    // Now sleep, to avoid updating our LCD too often.
-    //
-    delay(25);
-}
-
-
-//
-// Parse a CSV line which has the following form:
-//
-//  NNNNN,HH:MM:SS,NAME-STRING
-//
-// We want to show only the ID + time.
-//
-// To cut down on the number of columns used we'll
-// ignore the seconds, even though they are present.
-//
-// For Trams the ID (NNNN) will be two digits, such
-// as "04", "07", "10", "4B", but for busses the
-// routes have longer names.
-//
-void parse_line(const char *pch, int line)
-{
-    //
-    // Look for the first comma, which seperates
-    // the tram/bus-number and the time.
-    //
-    // We don't know how long that bus/tram ID
-    // will be.  But we'll assume <=6 characters
-    // later on.
-    //
-    char *comma = strchr(pch, ',');
-
-    //
-    // Did we not find it?
-    //
-    if (comma == NULL)
-    {
-        DEBUG_LOG("Malformed line - zero commas!\n");
-        return ;
-    }
-
-    //
-    // So our line-ID is contained between pch & comma.
-    //
-    // Copy it, capping it if we need to.
-    //
-    char id[6] = {'\0'};
-    memset(id, '\0', sizeof(id));
-
-    strncpy(id, pch, (comma - pch) >= sizeof(id) ? sizeof(id) - 1 : (comma - pch));
-
-
-    //
-    // Now we have comma pointing to ",HH:MM:SS,DESCRIPTION-HERE"
-    //
-    // We want to extract the time, and save that away.
-    //
-    //
-    // If our time is HH:MM:SS then c + 9 will be a comma
-    //
-    char tm[6] = {'\0'};
-
-    if (comma[9] == ',')
-    {
-        //
-        // Copy just the HH:MM
-        //
-        strncpy(tm, comma + 1 , 5);
-    }
-
-    //
-    // Now malloc some memory to return to the caller.
-    //
-    snprintf(screen[line], NUM_COLS - 1, "  Line %s @ %s", id, tm);
 
 }
 
+
+
+
 //
-// Given a bunch of CSV, containing departures,
-// we parse this and update the screen-array.
+// Given a bunch of CSV, containing departures, we parse this and
+// update the screen-array.
 //
-// The actual drawing of that data happens in the `loop()`
-// function.
+// We handle CSV of the form:
+//
+//    NNNNN,HH:MM:SS,Random-Text
+//
+// The first field is the tram/bus ID, the second is the time in
+// full hour-minute-second format, and the third is the name of the
+// route.
+//
+// We'll cope with a bus/tram-ID of up to five characters, and we'll
+// keep the display neat by truncating the time at HH:MM.
+//
+// The name of the route is not displayed.
 //
 void update_tram_times(const char *txt)
 {
@@ -828,7 +648,11 @@ void update_tram_times(const char *txt)
         //
         // The line will be:
         //
-        //  STOP,TIME,NAME
+        //   NN,HH:MM:SS,NAME
+        //
+        // So if we assume a two-digit ID such as "10", "7A", "4B",
+        // and the six digits of the time, then ten is a reasonable
+        // bound on the minimum-length of a valid-line.
         //
         if ((strlen(pch) > 10) && (line < NUM_ROWS))
         {
@@ -847,9 +671,56 @@ void update_tram_times(const char *txt)
             DEBUG_LOG("'\n");
 
             //
-            // Parse the line and update the screen-buffer with the result
+            // Look for the first comma, which seperates
+            // the tram/bus-number and the time.
             //
-            parse_line(pch, line);
+            // We don't know how long that bus/tram ID
+            // will be.  But we'll assume <=6 characters
+            // later on.
+            //
+            char *comma = strchr(pch, ',');
+
+            //
+            // If we found a comma then proceed.
+            //
+            if (comma != NULL)
+            {
+                // ID of line, and time of departure.
+                char id[6] = {'\0'};
+                char tm[6] = {'\0'};
+
+                //
+                // So our line-ID is contained between pch & comma.
+                //
+                // Copy it, capping it if we need to at five characters.
+                //
+                memset(id, '\0', sizeof(id));
+
+                strncpy(id, pch, (comma - pch) >= sizeof(id) ? sizeof(id) - 1 : (comma - pch));
+
+
+                //
+                // Now we have comma pointing to ",HH:MM:SS,DESCRIPTION-HERE"
+                //
+                // We want to extract the time, and save that away.
+                //
+                // If our time is HH:MM:SS then c + 9 will be a comma
+                //
+                // We will copy just the HH:MM part of the time, so five
+                // digits in total.
+                //
+                if (comma[9] == ',')
+                {
+                    strncpy(tm, comma + 1 , 5);
+                }
+
+                //
+                // Now we format the line of the screen with the data.
+                //
+                snprintf(screen[line], NUM_COLS - 1,
+                         "  Line %s @ %s", id, tm);
+
+            }
 
             // Show what we generated
             DEBUG_LOG("Generated line ");
@@ -867,6 +738,7 @@ void update_tram_times(const char *txt)
         pch = strtok(NULL, "\r\n");
     }
 }
+
 
 //
 // Call our HTTP-service and retrieve the tram time(s).
@@ -899,6 +771,10 @@ void fetch_tram_times()
     // Fetch the contents of the remote URL.
     //
     UrlFetcher client(url.c_str());
+
+    //
+    // If that succeeded.
+    //
     int code = client.code();
 
     if (code == 200)
@@ -910,7 +786,13 @@ void fetch_tram_times()
         String body = client.body();
 
         if (body.length() > 0)
+        {
             update_tram_times(body.c_str());
+        }
+        else
+        {
+            DEBUG_LOG("Empty body from HTTP-fetch");
+        }
     }
     else
     {
@@ -931,8 +813,9 @@ void fetch_tram_times()
 }
 
 
-/*-------- NTP code ----------*/
-
+//
+//-------- NTP code ----------
+//
 const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
 byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
 
@@ -1223,7 +1106,7 @@ void write_file(const char *path, const char *data)
 // Read a single line from a given file, and return it.
 //
 // This function explicitly filters out `\r\n`, and only
-// read sthe first line of the text.
+// reads the first line of the text.
 //
 String read_file(const char *path)
 {
@@ -1318,4 +1201,156 @@ void urldecode(const char *src, char *dst)
     }
 
     *dst++ = '\0';
+}
+
+
+//
+// Process an incoming HTTP-request.
+//
+void processHTTPRequest(WiFiClient client)
+{
+    // Wait until the client sends some data
+    while (client.connected() && !client.available())
+        delay(1);
+
+    // Read the first line of the request
+    String request = client.readStringUntil('\r');
+    client.flush();
+
+    // Turn on the backlight?
+    if (request.indexOf("/ON") != -1)
+    {
+        backlight = true;
+        lcd.setBacklight(true);
+
+        // Redirect to the server-root
+        redirectIndex(client);
+        return;
+    }
+
+    // Turn off the backlight?
+    if (request.indexOf("/OFF") != -1)
+    {
+        backlight = false;
+        lcd.setBacklight(false);
+
+        // Redirect to the server-root
+        redirectIndex(client);
+        return;
+    }
+
+    // Change the tram-stop?
+    if (request.indexOf("/?stop=") != -1)
+    {
+        char *pattern = "/?stop=";
+        char *s = strstr(request.c_str(), pattern);
+
+        if (s != NULL)
+        {
+
+            // Empty the tram ID
+            memset(tram_stop, '\0', sizeof(tram_stop));
+
+            // Skip past the pattern.
+            s += strlen(pattern);
+
+            // Add characters until we come to a terminating character.
+            for (int i = 0; i < strlen(s); i++)
+            {
+                if ((s[i] != ' ') && (s[i] != '&'))
+                    tram_stop[strlen(tram_stop)] = s[i];
+                else
+                    break;
+            }
+
+            // Record the data in a file.
+            write_file("/tram.stop", tram_stop);
+
+            // So we've changed the tram ID we should refresh the date.
+            fetch_tram_times();
+        }
+
+        // Redirect to the server-root
+        redirectIndex(client);
+        return;
+    }
+
+    // Change the API end-point
+    if (request.indexOf("/?api=") != -1)
+    {
+        char *pattern = "/?api=";
+        char *s = strstr(request.c_str(), pattern);
+
+        if (s != NULL)
+        {
+            char tmp[256] = { '\0' };
+
+            // Skip past the pattern.
+            s += strlen(pattern);
+
+            // Add characters until we come to a terminating character.
+            for (int i = 0; i < strlen(s); i++)
+            {
+                if ((s[i] != ' ') && (s[i] != '&'))
+                    tmp[strlen(tmp)] = s[i];
+                else
+                    break;
+            }
+
+            // URL decode..
+            urldecode(tmp, api_end_point);
+
+            // Record the data in a file.
+            write_file("/tram.api", api_end_point);
+
+            // So we've changed the tram ID we should refresh the date.
+            fetch_tram_times();
+        }
+
+        // Redirect to the server-root
+        redirectIndex(client);
+        return;
+    }
+
+    // Change the time-zone?
+    if (request.indexOf("/?tz=") != -1)
+    {
+        char *pattern = "/?tz=";
+        char *s = strstr(request.c_str(), pattern);
+
+        if (s != NULL)
+        {
+            // Temporary holder for the timezone - as a string.
+            char tmp[10] = { '\0' };
+
+            // Skip past the pattern.
+            s += strlen(pattern);
+
+            // Add characters until we come to a terminating character.
+            for (int i = 0; i < strlen(s); i++)
+            {
+                if ((s[i] != ' ') && (s[i] != '&'))
+                    tmp[strlen(tmp)] = s[i];
+                else
+                    break;
+            }
+
+            // Record the data into a file.
+            write_file("/time.zone", tmp);
+
+            // Change the timezone now
+            time_zone_offset = atoi(tmp);
+
+            // Force a resync of the timezone, via a resync of the time.
+            setSyncProvider(getNtpTime);
+        }
+
+        // Redirect to the server-root
+        redirectIndex(client);
+        return;
+    }
+
+    // Return a simple response
+    serveHTML(client);
+
 }
