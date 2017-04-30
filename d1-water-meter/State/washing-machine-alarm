@@ -1,0 +1,127 @@
+#!/usr/bin/perl
+#
+#  Washing-machine state.
+#
+#  We use the marker-file "/tmp/flow" to record whether the machine
+# is running or not.  When it ceases we stop.
+#
+#
+use strict;
+use warnings;
+
+use JSON;
+use Net::MQTT::Simple;
+
+
+#
+# State-file
+#
+my $file = "/tmp/flow";
+
+
+#
+#  Connect to the queue.
+#
+my $mqtt = Net::MQTT::Simple->new("localhost");
+
+#
+#  Watch the queue
+#
+$mqtt->run(
+    "+" => sub {
+        my ( $topic, $message ) = @_;
+        if ( $topic eq "water" )
+        {
+            record_water($message);
+        }
+        else
+        {
+            print "Ignoring topic:$topic -> $message\n";
+        }
+    },
+);
+
+exit(0);
+
+
+
+sub record_water
+{
+    my ($msg) = (@_);
+    my $json  = JSON->new->allow_nonref;
+    my $obj   = $json->decode($msg);
+
+    my $flow = $obj->{ 'flow' };
+
+    #
+    #  So we're either going to get :
+    #
+    #
+    #    0  -> No water
+    #
+    #
+    #    N  -> Some water
+    #
+    if ( $flow > 0 )
+    {
+        # So we have water.
+        # Record that
+        open( my $handle, ">", $file );
+        print $handle $flow . "\n";
+        close($handle);
+
+        print "Recorded flow: $flow\n";
+    }
+    else
+    {
+        # No flow currently.
+
+        # If we've not previously had flow then
+        # return
+        if ( -e $file )
+        {
+            print "No flow right now, but we saw some in the past\n";
+
+            # Did we have flow recently?
+            my ( $dev,   $ino,     $mode, $nlink, $uid,
+                 $gid,   $rdev,    $size, $atime, $mtime,
+                 $ctime, $blksize, $blocks
+               )
+              = stat($file);
+
+            my $now = time();
+            my $ago = $now - $mtime;
+
+            print "Flow last seen $ago seconds ago\n";
+
+            if ( $ago > 30 * 60 )
+            {
+                print("Flow last seen >30 minutes, so we've stopped\n");
+
+                # We had flow in the past 30 minutes, but nevermore.
+                unlink($file);
+
+                send_email();
+            }
+            else
+            {
+                print "Flow was <30 minutes, so we're still running?\n";
+            }
+        }
+    }
+}
+
+sub send_email
+{
+    my $txt = <<EOF;
+To: steve\@steve.org.uk
+From: steve\@steve.org.uk
+Subject: Washing Over
+
+The washing machine has finished!
+EOF
+    open( SENDMAIL, "|/usr/lib/sendmail -t -f steve\@steve.org.uk" ) or
+      die "Cannot open sendmail: $!";
+    print( SENDMAIL $txt );
+    close(SENDMAIL);
+}

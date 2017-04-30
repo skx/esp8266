@@ -1,0 +1,14 @@
+[Unit]
+Description=Washing-Machine Alarm
+
+[Service]
+User=skx
+WorkingDirectory=/tmp
+ExecStart=/usr/local/bin/washing-machine-alarm
+KillMode=process
+Restart=always
+StartLimitInterval=2
+StartLimitBurst=20
+
+[Install]
+WantedBy=multi-user.target
