@@ -274,6 +274,14 @@ void setup()
 //
 void loop()
 {
+    //
+    // Handle any pending over the air updates.
+    //
+    ArduinoOTA.handle();
+
+    //
+    // The time we last read the temperature
+    //
     static long last_read = 0;
 
     //
@@ -336,7 +344,7 @@ void reconnect()
 
         String id = PROJECT_NAME;
         id += board_info.mac();
-         
+
         // Attempt to connect
         if (client.connect(id.c_str()))
         {
