@@ -34,7 +34,5 @@ mpc add file:///$(pwd)/alarm.mp3
 # Play
 mpc play
 
-# Clear the current-playlist, post-completion.
-mpc clear
 
 echo "Alarm Complete at $(date)"
