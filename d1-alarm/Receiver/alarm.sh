@@ -9,6 +9,7 @@
 #
 #
 
+echo "Button pressed at $(date)"
 
 # Unmute the audio, if muted
 amixer set Master unmute
@@ -35,3 +36,5 @@ mpc play
 
 # Clear the current-playlist, post-completion.
 mpc clear
+
+echo "Alarm Complete at $(date)"
