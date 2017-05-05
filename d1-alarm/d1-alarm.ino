@@ -1,13 +1,12 @@
 //
-//    A button wired between D0 & D8 to publish an alarm
-// notification via MQ.
+// A button wired between D0 & D8 to publish an alarm notification via MQ.
 //
 
 
 //
 // The name of this project.
 //
-// Used for the Access-Point name, and for OTA-identification.
+// Used for the Access-Point name, and for over the air updates.
 //
 #define PROJECT_NAME "D1-MQ-ALARM"
 
@@ -190,7 +189,7 @@ void on_long_click()
 
 
 //
-// If we're unconfigured we run an access-point.
+// If we're not configured with WiFi login details we run an access-point.
 //
 // Show that, explicitly.
 //
@@ -204,7 +203,7 @@ void access_point_callback(WiFiManager* myWiFiManager)
 
 
 //
-// This function is called continously.
+// This function is called continuously.
 //
 void loop()
 {
@@ -235,7 +234,7 @@ void loop()
     handlePendingButtons();
 
     //
-    // Now sleep, to avoid updating our LCD too often.
+    // Now have a little rest.
     //
     delay(20);
 }
@@ -260,7 +259,7 @@ void handlePendingButtons()
         DEBUG_LOG("Short Click\n");
 
         // Send it away
-        String payload = "{\"click\":\"short\"}";
+        String payload = "{\"click\":\"short\",\"mac\":\"" + board_info.mac() + "\"}";
         client.publish("alarm", payload.c_str());
 
     }
@@ -274,7 +273,7 @@ void handlePendingButtons()
         DEBUG_LOG("Long Click\n");
 
         // Send it away
-        String payload = "{\"click\":\"long\"}";
+        String payload = "{\"click\":\"long\",\"mac\":\"" + board_info.mac() + "\"}";
         client.publish("alarm", payload.c_str());
     }
 }
@@ -348,4 +347,3 @@ void reconnect()
     }
 
 }
-
