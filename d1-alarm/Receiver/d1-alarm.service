@@ -1,0 +1,14 @@
+[Unit]
+Description=D1-Alarm
+
+[Service]
+User=skx
+WorkingDirectory=/tmp
+ExecStart=/opt/d1-alarm/receiver
+KillMode=process
+Restart=always
+StartLimitInterval=2
+StartLimitBurst=20
+
+[Install]
+WantedBy=multi-user.target

@@ -1,4 +1,4 @@
-#!/usr/bin/perl 
+#!/usr/bin/perl
 #
 # Listen for a message on the topic "alarm", when found
 # execute the `alarm.sh` script - which will play an alarm.
@@ -16,7 +16,7 @@ $mqtt->run(
         my ( $topic, $message ) = @_;
         if ( $topic =~ /alarm/i )
         {
-            system("./alarm.sh");
+            system("run-parts /opt/d1-alarm/part.d/");
         }
     },
 );
