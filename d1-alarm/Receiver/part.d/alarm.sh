@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Interrupt the current music, if any, and play our alarm.
 #
@@ -8,6 +8,9 @@
 # interfering with any custom playlist.
 #
 #
+
+# Find our directory-name
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 echo "Button pressed at $(date)"
 
@@ -29,7 +32,7 @@ mpc volume 55
 mpc clear
 
 # Add a single file.
-mpc add file:///$(pwd)/alarm.mp3
+mpc add file:///${DIR}/alarm.mp3
 
 # Play
 mpc play
