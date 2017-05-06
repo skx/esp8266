@@ -33,9 +33,6 @@ String info::ip()
 
 String info::id()
 {
-//    static char tmp[10];
-//    snprintf(tmp, sizeof(tmp) - 1, "%06X",  ESP.getChipId());
-//    return (String(tmp));
     return (String(ESP.getChipId(), HEX));
 }
 
