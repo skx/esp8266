@@ -21,6 +21,11 @@
 
 #include "NTPClient.h"
 
+#ifndef LEAP_YEAR
+#  define LEAP_YEAR(Y)     ( (Y>0) && !(Y%4) && ( (Y%100) || !(Y%400) ) )
+#endif
+
+
 NTPClient::NTPClient(UDP& udp) {
   this->_udp            = &udp;
 }
@@ -118,6 +123,81 @@ int NTPClient::getMinutes() {
 }
 int NTPClient::getSeconds() {
   return (this->getEpochTime() % 60);
+}
+
+// Abbreviated day of week.
+String NTPClient::getWeekDay()
+{
+    const char *days[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+    return( days[ this->getDay() ] );
+
+}
+
+// The abbreviated name of the month.
+String NTPClient::getMonth()
+{
+    const char *mons[] = { "NOP", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+
+    unsigned long rawTime =  this->getEpochTime() / 86400L;  // in days
+
+    unsigned long days = 0, year = 1970;
+    uint8_t month;
+    static const uint8_t monthDays[]={31,28,31,30,31,30,31,31,30,31,30,31};
+
+    while((days += (LEAP_YEAR(year) ? 366 : 365)) <= rawTime)
+        year++;
+
+    rawTime -= days - (LEAP_YEAR(year) ? 366 : 365); // now it is days in this year, starting at 0
+    days=0;
+    for (month=0; month<12; month++) {
+        uint8_t monthLength;
+        if (month==1) { // february
+            monthLength = LEAP_YEAR(year) ? 29 : 28;
+        } else {
+            monthLength = monthDays[month];
+        }
+        if (rawTime < monthLength) break;
+        rawTime -= monthLength;
+    }
+
+    return( mons[month+1] );
+}
+
+// Get the year
+int NTPClient::getYear()
+{
+
+    unsigned long rawTime =  this->getEpochTime() / 86400L;  // in days
+    unsigned long days = 0,year = 1970;
+
+    while((days += (LEAP_YEAR(year) ? 366 : 365)) <= rawTime)
+        year++;
+    return(year);
+}
+
+// The day of the month.
+int NTPClient::getDayOfMonth()
+{
+    unsigned long rawTime = this->getEpochTime() / 86400L;  // in days
+    unsigned long days = 0, year = 1970;
+    uint8_t month;
+    static const uint8_t monthDays[]={31,28,31,30,31,30,31,31,30,31,30,31};
+
+    while((days += (LEAP_YEAR(year) ? 366 : 365)) <= rawTime)
+        year++;
+    rawTime -= days - (LEAP_YEAR(year) ? 366 : 365); // now it is days in this year, starting at 0
+    days=0;
+    for (month=0; month<12; month++) {
+        uint8_t monthLength;
+        if (month==1) { // february
+            monthLength = LEAP_YEAR(year) ? 29 : 28;
+        } else {
+            monthLength = monthDays[month];
+        }
+        if (rawTime < monthLength) break;
+        rawTime -= monthLength;
+    }
+    return(rawTime+1);
 }
 
 String NTPClient::getFormattedTime() {

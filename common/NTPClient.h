@@ -58,10 +58,25 @@ class NTPClient {
      */
     bool forceUpdate();
 
+    // Day of week
     int getDay();
+
+    // Hour / Minute / Seconds
     int getHours();
     int getMinutes();
     int getSeconds();
+
+    // The day of the month.
+    int getDayOfMonth();
+
+    // The month name, abbreviated.
+    String getMonth();
+
+    // The week-day, abbreviated.
+    String getWeekDay();
+
+    // The year.
+    int getYear();
 
     /**
      * Changes the time offset. Useful for changing timezones dynamically
