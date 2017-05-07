@@ -71,7 +71,12 @@ WiFiServer server(80);
 //
 // For dealing with NTP & the clock.
 //
-#include "TimeLib.h"
+#include "NTPClient.h"
+
+
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP);
+
 
 
 //
@@ -146,19 +151,14 @@ void setup()
 
 
     //
-    // Ensure our UDP port is listening for receiving NTP-replies
+    // Ensure our NTP-client is ready.
     //
-    Udp.begin(localPort);
-
-
-    //
-    // But now we're done, so we'll setup the clock.
-    //
-    // We provide the time via NTP, and resync every five minutes
-    // which is excessive, but harmless.
-    //
-    setSyncProvider(getNtpTime);
-    setSyncInterval(300);
+    timeClient.begin();
+    DEBUG_LOG("Timezone offset is ");
+    DEBUG_LOG(time_zone_offset);
+    DEBUG_LOG("\n");
+    timeClient.setTimeOffset(time_zone_offset * (60 * 60));
+    timeClient.setUpdateInterval(300);
 
     //
     // Launch the HTTP-server
@@ -232,6 +232,11 @@ void loop()
     ArduinoOTA.handle();
 
     //
+    // Resync the clock?
+    //
+    timeClient.update();
+
+    //
     // Check if a client has connected to our HTTP-server.
     //
     // If so handle it.
@@ -299,9 +304,8 @@ void draw_clock()
     //
     // Get the current time.
     //
-    time_t t = now();
-    int hur  = hour(t);
-    int min  = minute(t);
+    int hur = timeClient.getHours();
+    int min = timeClient.getMinutes();
 
     DEBUG_LOG("Time is ");
     DEBUG_LOG(hur);
@@ -438,110 +442,6 @@ void draw_blink()
 }
 
 
-
-//
-//-------- NTP code ----------
-//
-const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
-byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
-
-time_t getNtpTime()
-{
-    IPAddress ntpServerIP;
-
-    // Show what we're doing on the last row.
-    DEBUG_LOG("Syncing date & time\n");
-
-    // discard any previously received packets
-    while (Udp.parsePacket() > 0) ;
-
-    DEBUG_LOG("Initiating NTP sync\n");
-
-    // get a random server from the pool
-    WiFi.hostByName(ntpServerName, ntpServerIP);
-
-    DEBUG_LOG(ntpServerName);
-    DEBUG_LOG(" -> ");
-    DEBUG_LOG(ntpServerIP);
-    DEBUG_LOG("\n");
-
-    sendNTPpacket(ntpServerIP);
-
-    // delay(50);
-    uint32_t beginWait = millis();
-
-    while ((millis() - beginWait) < 5000)
-    {
-        DEBUG_LOG("#");
-        int size = Udp.parsePacket();
-
-        if (size >= NTP_PACKET_SIZE)
-        {
-
-            DEBUG_LOG("Received NTP Response\n");
-            Udp.read(packetBuffer, NTP_PACKET_SIZE);
-
-            unsigned long secsSince1900;
-
-            // convert four bytes starting at location 40 to a long integer
-            secsSince1900 = (unsigned long)packetBuffer[40] << 24;
-            secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
-            secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
-            secsSince1900 |= (unsigned long)packetBuffer[43];
-
-            // Now convert to the real time.
-            unsigned long now = secsSince1900 - 2208988800UL;
-
-            if (time_zone_offset != 0)
-            {
-
-                DEBUG_LOG("Adjusting time : ");
-                DEBUG_LOG(time_zone_offset);
-                DEBUG_LOG("\n");
-
-                now += (time_zone_offset * SECS_PER_HOUR);
-            }
-
-            return (now);
-        }
-
-        delay(50);
-    }
-
-    DEBUG_LOG("NTP-sync failed\n");
-    return 0;
-}
-
-
-
-
-// send an NTP request to the time server at the given address
-void sendNTPpacket(IPAddress &address)
-{
-    // set all bytes in the buffer to 0
-    memset(packetBuffer, 0, NTP_PACKET_SIZE);
-
-    // Initialize values needed to form NTP request
-    // (see URL above for details on the packets)
-    packetBuffer[0] = 0b11100011;   // LI, Version, Mode
-    packetBuffer[1] = 0;     // Stratum, or type of clock
-    packetBuffer[2] = 6;     // Polling Interval
-    packetBuffer[3] = 0xEC;  // Peer Clock Precision
-
-    // 8 bytes of zero for Root Delay & Root Dispersion
-    packetBuffer[12] = 49;
-    packetBuffer[13] = 0x4E;
-    packetBuffer[14] = 49;
-    packetBuffer[15] = 52;
-
-    // all NTP fields have been given values, now
-    // you can send a packet requesting a timestamp:
-    Udp.beginPacket(address, 123); //NTP requests are to port 123
-    Udp.write(packetBuffer, NTP_PACKET_SIZE);
-    Udp.endPacket();
-}
-
-
 //
 // Open the given file for writing, and write
 // out the specified data.
@@ -661,8 +561,9 @@ void processHTTPRequest(WiFiClient client)
             // Change the timezone now
             time_zone_offset = atoi(tmp);
 
-            // Force a resync of the timezone, via a resync of the time.
-            setSyncProvider(getNtpTime);
+            // Update the offset.
+            timeClient.setTimeOffset(time_zone_offset * (60 * 60));
+            timeClient.forceUpdate();
         }
 
         // Redirect to the server-root
