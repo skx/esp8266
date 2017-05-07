@@ -410,7 +410,7 @@ void on_long_click()
 //
 void on_before_ntp()
 {
-    draw_line(NUM_ROWS - 1, "Refreshing date & time");
+    draw_line(NUM_ROWS - 1, "Updating date & time");
 }
 
 //
@@ -418,7 +418,7 @@ void on_before_ntp()
 //
 void on_after_ntp()
 {
-    draw_line(NUM_ROWS - 1, "Date & time updated");
+    draw_line(NUM_ROWS - 1, "Updated date & time");
 }
 
 //
