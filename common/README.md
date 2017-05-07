@@ -4,12 +4,14 @@ This directory contains some common code which is used in my projects:
 
 ## Libraries
 
-* `WiFiManager.*`
-   * From https://github.com/tzapu/WiFiManager
+* `NtpClient.*`
+  * From  https://github.com/arduino-libraries/NTPClient
 * `OneButton.*`
    * From https://github.com/mathertel/OneButton
 * `PubSubClient.*`
    * From https://github.com/knolleary/pubsubclient
+* `WiFiManager.*`
+   * From https://github.com/tzapu/WiFiManager
 
 ## My Code
 
