@@ -300,7 +300,7 @@ void setup()
     // Setup the timezone & update-interval.
     //
     timeClient.setTimeOffset(time_zone_offset * (60 * 60));
-    timeClient.setUpdateInterval(300);
+    timeClient.setUpdateInterval(300 * 1000);
 
 
 

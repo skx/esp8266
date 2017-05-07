@@ -158,7 +158,7 @@ void setup()
     DEBUG_LOG(time_zone_offset);
     DEBUG_LOG("\n");
     timeClient.setTimeOffset(time_zone_offset * (60 * 60));
-    timeClient.setUpdateInterval(300);
+    timeClient.setUpdateInterval(300 * 1000 );
 
     //
     // Launch the HTTP-server
