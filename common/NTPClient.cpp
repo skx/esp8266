@@ -53,6 +53,16 @@ NTPClient::NTPClient(UDP& udp, const char* poolServerName, int timeOffset, unsig
   this->_updateInterval = updateInterval;
 }
 
+void NTPClient::on_before_update( callbackFunction newFunction )
+{
+    this->on_before = newFunction;
+}
+
+void NTPClient::on_after_update( callbackFunction newFunction )
+{
+    this->on_after = newFunction;
+}
+
 void NTPClient::begin() {
   this->begin(NTP_DEFAULT_LOCAL_PORT);
 }
@@ -69,6 +79,9 @@ bool NTPClient::forceUpdate() {
   #ifdef DEBUG_NTPClient
     Serial.println("Update from NTP Server");
   #endif
+
+  if ( on_before )
+    on_before();
 
   this->sendNTPPacket();
 
@@ -93,6 +106,9 @@ bool NTPClient::forceUpdate() {
   unsigned long secsSince1900 = highWord << 16 | lowWord;
 
   this->_currentEpoc = secsSince1900 - SEVENZYYEARS;
+
+  if ( on_after )
+      on_after();
 
   return true;
 }

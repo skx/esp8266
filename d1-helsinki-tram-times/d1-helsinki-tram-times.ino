@@ -192,12 +192,6 @@ LiquidCrystal_I2C lcd(0x27, NUM_COLS, NUM_ROWS);
 
 
 //
-// The NTP-server we use.
-//
-static const char ntpServerName[] = "pool.ntp.org";
-
-
-//
 // Is the backlight lit?  Defaults to true.
 //
 bool backlight = true;
@@ -295,6 +289,12 @@ void setup()
     // Ensure our NTP-client is ready.
     //
     timeClient.begin();
+
+    //
+    // Configure the callbacks.
+    //
+    timeClient.on_before_update( on_before_ntp );
+    timeClient.on_after_update( on_after_ntp );
 
     //
     // Setup the timezone & update-interval.
@@ -402,6 +402,24 @@ void on_long_click()
     long_click = true;
 }
 
+
+
+
+//
+// Called just before the date/time is updated via NTP
+//
+void on_before_ntp()
+{
+    draw_line(NUM_ROWS - 1, "Refreshing date & time");
+}
+
+//
+// Called just after the date/time is updated via NTP
+//
+void on_after_ntp()
+{
+    draw_line(NUM_ROWS - 1, "Date & time updated");
+}
 
 //
 // If we're unconfigured we run an access-point.

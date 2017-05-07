@@ -62,13 +62,6 @@ WiFiServer server(80);
 #include <ArduinoOTA.h>
 
 //
-// NTP uses UDP.
-//
-#include <WiFiUdp.h>
-
-
-
-//
 // For dealing with NTP & the clock.
 //
 #include "NTPClient.h"
@@ -102,12 +95,6 @@ int time_zone_offset = 0;
 //
 WiFiUDP Udp;
 unsigned int localPort = 2390;
-
-//
-// The NTP-server we use.
-//
-static const char ntpServerName[] = "pool.ntp.org";
-
 
 
 void setup()
@@ -154,6 +141,9 @@ void setup()
     // Ensure our NTP-client is ready.
     //
     timeClient.begin();
+    timeClient.on_before_update( on_before_ntp );
+    timeClient.on_after_update( on_after_ntp );
+
     DEBUG_LOG("Timezone offset is ");
     DEBUG_LOG(time_zone_offset);
     DEBUG_LOG("\n");
@@ -222,6 +212,24 @@ void setup()
 
 
 }
+
+
+//
+// Called just before the date/time is updated via NTP
+//
+void on_before_ntp()
+{
+  DEBUG_LOG("About to update via NTP\n" );
+}
+
+//
+// Called just after the date/time is updated via NTP
+//
+void on_after_ntp()
+{
+   DEBUG_LOG( "NTP update complete\n" );
+}
+
 
 void loop()
 {

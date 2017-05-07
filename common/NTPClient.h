@@ -8,6 +8,11 @@
 #define NTP_PACKET_SIZE 48
 #define NTP_DEFAULT_LOCAL_PORT 1337
 
+
+extern "C" {
+  typedef void (*callbackFunction)(void);
+}
+
 class NTPClient {
   private:
     UDP*          _udp;
@@ -26,12 +31,25 @@ class NTPClient {
 
     void          sendNTPPacket();
 
+    callbackFunction on_before = NULL;
+    callbackFunction on_after  = NULL;
+
   public:
     NTPClient(UDP& udp);
     NTPClient(UDP& udp, int timeOffset);
     NTPClient(UDP& udp, const char* poolServerName);
     NTPClient(UDP& udp, const char* poolServerName, int timeOffset);
     NTPClient(UDP& udp, const char* poolServerName, int timeOffset, unsigned long updateInterval);
+
+    /**
+     * Invoke this user-function before we update.
+     */
+    void on_before_update(callbackFunction newFunction);
+
+    /**
+     * Invoke this user-function after we update.
+     */
+    void on_after_update(callbackFunction newFunction);
 
     /**
      * Starts the underlying UDP client with the default local port
