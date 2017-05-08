@@ -28,7 +28,11 @@
 //
 // Time & NTP
 //
-#include "TimeLib.h"
+#include "NTPClient.h"
+
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP);
+
 
 
 //
@@ -39,7 +43,6 @@
 //   OTA name.
 //
 #define PROJECT_NAME "NTP-CLOCK"
-
 
 
 //
@@ -84,19 +87,6 @@
 # define WIFI_SSID "SCOTLAND"
 # define WIFI_PASS "highlander1"
 #endif
-
-
-//
-// UDP-socket & local-port for replies.
-//
-WiFiUDP Udp;
-unsigned int localPort = 2390;
-
-
-//
-// The NTP-server we use.
-//
-static const char ntpServerName[] = "time.nist.gov";
 
 
 //
@@ -172,19 +162,17 @@ void setup()
 #endif
 
     //
-    // Ensure our UDP port is listening for receiving NTP-replies
+    // Ensure our NTP-client is ready.
     //
-    Udp.begin(localPort);
+    timeClient.begin();
 
 
     //
-    // But now we're done, so we'll setup the clock.
+    // Setup the timezone & update-interval.
     //
-    // We provide the time via NTP, and resync every five minutes
-    // which is excessive, but harmless.
-    //
-    setSyncProvider(getNtpTime);
-    setSyncInterval(300);
+    timeClient.setTimeOffset(TIME_ZONE * (60 * 60));
+    timeClient.setUpdateInterval(300 * 1000);
+
 
     //
     // The final step is to allow over the air updates
@@ -206,11 +194,10 @@ void setup()
     });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
     {
-        char buf[16];
+        char buf[32];
         memset(buf, '\0', sizeof(buf));
-        snprintf(buf, sizeof(buf) - 1, "Upgrade - %02u%%          ", (progress / (total / 100)));
+        snprintf(buf, sizeof(buf) - 1, "Upgrade - %02u%%\n", (progress / (total / 100)));
         DEBUG_LOG(buf);
-        DEBUG_LOG("\n");
     });
     ArduinoOTA.onError([](ota_error_t error)
     {
@@ -235,7 +222,6 @@ void setup()
     //
     ArduinoOTA.begin();
 
-
 }
 
 
@@ -257,9 +243,8 @@ void loop()
     //
     // Get the current hour/min
     //
-    time_t nw   = now();
-    int cur_hour = hour(nw);
-    int cur_min  = minute(nw);
+    int cur_hour = timeClient.getHours();
+    int cur_min  = timeClient.getMinutes();
 
     //
     // Format them in a useful way.
@@ -312,99 +297,4 @@ void loop()
         memset(prev, '\0', sizeof(prev));
         last_read = now;
     }
-}
-
-
-
-/*-------- NTP code ----------*/
-
-const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
-byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
-
-time_t getNtpTime()
-{
-    IPAddress ntpServerIP;
-
-    // discard any previously received packets
-    while (Udp.parsePacket() > 0) ;
-
-    DEBUG_LOG("Initiating NTP sync\n");
-
-    // get a random server from the pool
-    WiFi.hostByName(ntpServerName, ntpServerIP);
-
-    DEBUG_LOG(ntpServerName);
-    DEBUG_LOG(" -> ");
-    DEBUG_LOG(ntpServerIP);
-    DEBUG_LOG("\n");
-
-    sendNTPpacket(ntpServerIP);
-
-    delay(50);
-    uint32_t beginWait = millis();
-
-    while ((millis() - beginWait) < 5000)
-    {
-        DEBUG_LOG("#");
-        int size = Udp.parsePacket();
-
-        if (size >= NTP_PACKET_SIZE)
-        {
-
-            DEBUG_LOG("Received NTP Response\n");
-            Udp.read(packetBuffer, NTP_PACKET_SIZE);
-
-            unsigned long secsSince1900;
-
-            // convert four bytes starting at location 40 to a long integer
-            secsSince1900 = (unsigned long)packetBuffer[40] << 24;
-            secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
-            secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
-            secsSince1900 |= (unsigned long)packetBuffer[43];
-
-            // Now convert to the real time.
-            unsigned long now = secsSince1900 - 2208988800UL;
-
-#ifdef TIME_ZONE
-            DEBUG_LOG("Adjusting time : ");
-            DEBUG_LOG(TIME_ZONE);
-            DEBUG_LOG("\n");
-
-            now += (TIME_ZONE * SECS_PER_HOUR);
-#endif
-
-            return (now);
-        }
-
-        delay(50);
-    }
-
-    DEBUG_LOG("NTP-sync failed\n");
-    return 0;
-}
-
-// send an NTP request to the time server at the given address
-void sendNTPpacket(IPAddress &address)
-{
-    // set all bytes in the buffer to 0
-    memset(packetBuffer, 0, NTP_PACKET_SIZE);
-
-    // Initialize values needed to form NTP request
-    // (see URL above for details on the packets)
-    packetBuffer[0] = 0b11100011;   // LI, Version, Mode
-    packetBuffer[1] = 0;     // Stratum, or type of clock
-    packetBuffer[2] = 6;     // Polling Interval
-    packetBuffer[3] = 0xEC;  // Peer Clock Precision
-
-    // 8 bytes of zero for Root Delay & Root Dispersion
-    packetBuffer[12] = 49;
-    packetBuffer[13] = 0x4E;
-    packetBuffer[14] = 49;
-    packetBuffer[15] = 52;
-
-    // all NTP fields have been given values, now
-    // you can send a packet requesting a timestamp:
-    Udp.beginPacket(address, 123); //NTP requests are to port 123
-    Udp.write(packetBuffer, NTP_PACKET_SIZE);
-    Udp.endPacket();
 }
