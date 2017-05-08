@@ -90,11 +90,6 @@ state g_state = CLOCK;
 //
 int time_zone_offset = 0;
 
-//
-// UDP-socket & local-port for replies.
-//
-WiFiUDP Udp;
-unsigned int localPort = 2390;
 
 
 void setup()
@@ -314,12 +309,13 @@ void draw_clock()
     //
     int hur = timeClient.getHours();
     int min = timeClient.getMinutes();
+    int sec = timeClient.getSeconds();
 
-    DEBUG_LOG("Time is ");
-    DEBUG_LOG(hur);
-    DEBUG_LOG(":");
-    DEBUG_LOG(min);
-    DEBUG_LOG("\n");
+#ifdef DEBUG
+    char buf[40] = { '\0' };
+    snprintf(buf, sizeof(buf)-1, "The time is %02d:%02d:%02d\n", hur, min, sec );
+    DEBUG_LOG(buf);
+#endif
 
 
     //
@@ -330,11 +326,11 @@ void draw_clock()
     min = min / 5;
     min = min % 12;
 
-    DEBUG_LOG("Adjusted Time ");
-    DEBUG_LOG(hur);
-    DEBUG_LOG(":");
-    DEBUG_LOG(min);
-    DEBUG_LOG("\n");
+#ifdef DEBUG
+    char buf2[40] = { '\0' };
+    snprintf(buf2, sizeof(buf2)-1, "The adjusted time is %02d:%02d\n", hur, min );
+    DEBUG_LOG(buf2);
+#endif
 
 
     // All LEDs should be off
