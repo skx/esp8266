@@ -129,105 +129,121 @@ unsigned long NTPClient::getEpochTime() {
 }
 
 int NTPClient::getDay() {
-  return (((this->getEpochTime()  / 86400L) + 4 ) % 7); //0 is Sunday
+    parse_date_time();
+    return(_data.Wday);
 }
 int NTPClient::getHours() {
-  return ((this->getEpochTime()  % 86400L) / 3600);
+    parse_date_time();
+    return(_data.Hour);
 }
 int NTPClient::getMinutes() {
-  return ((this->getEpochTime() % 3600) / 60);
+    parse_date_time();
+    return(_data.Minute);
 }
 int NTPClient::getSeconds() {
-  return (this->getEpochTime() % 60);
+    parse_date_time();
+    return(_data.Second);
 }
 
-// Abbreviated day of week.
-String NTPClient::getWeekDay()
+// The day of week.
+String NTPClient::getWeekDay(bool abbreviated)
 {
-    const char *days[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-    return( days[ this->getDay() ] );
+    const char *day_s[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+    const char *day_l[] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturaday" };
 
+    parse_date_time();
+
+    if (abbreviated)
+        return( day_s[ _data.Wday ] );
+    else
+        return( day_l[ _data.Wday ] );
 }
 
-// The abbreviated name of the month.
-String NTPClient::getMonth()
+// The name of the month.
+String NTPClient::getMonth(bool abbreviated)
 {
-    const char *mons[] = { "NOP", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+    const char *mon_s[] = { "NOP", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+    const char *mon_l[] = { "NOP", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" };
 
-    unsigned long rawTime =  this->getEpochTime() / 86400L;  // in days
+    parse_date_time();
 
-    unsigned long days = 0, year = 1970;
-    uint8_t month;
-    static const uint8_t monthDays[]={31,28,31,30,31,30,31,31,30,31,30,31};
-
-    while((days += (LEAP_YEAR(year) ? 366 : 365)) <= rawTime)
-        year++;
-
-    rawTime -= days - (LEAP_YEAR(year) ? 366 : 365); // now it is days in this year, starting at 0
-    days=0;
-    for (month=0; month<12; month++) {
-        uint8_t monthLength;
-        if (month==1) { // february
-            monthLength = LEAP_YEAR(year) ? 29 : 28;
-        } else {
-            monthLength = monthDays[month];
-        }
-        if (rawTime < monthLength) break;
-        rawTime -= monthLength;
-    }
-
-    return( mons[month+1] );
+    if (abbreviated)
+        return( mon_s[_data.Month] );
+    else
+        return( mon_l[_data.Month] );
 }
 
 // Get the year
-int NTPClient::getYear()
-{
-
-    unsigned long rawTime =  this->getEpochTime() / 86400L;  // in days
-    unsigned long days = 0,year = 1970;
-
-    while((days += (LEAP_YEAR(year) ? 366 : 365)) <= rawTime)
-        year++;
-    return(year);
+int NTPClient::getYear() {
+    parse_date_time();
+    return(_data.Year);
 }
 
 // The day of the month.
-int NTPClient::getDayOfMonth()
-{
-    unsigned long rawTime = this->getEpochTime() / 86400L;  // in days
+int NTPClient::getDayOfMonth() {
+    parse_date_time();
+    return(_data.Day);
+}
+
+// Parse our date/time into a structure, which we can then use elsewhere.
+time_data NTPClient::parse_date_time() {
+    // Get epoch-time
+    unsigned long rawTime = this->getEpochTime();
+
+    // Get basics
+    _data.Hour   = ((rawTime % 86400L) / 3600);
+    _data.Minute = ((rawTime % 3600) / 60);
+    _data.Second = (rawTime % 60);
+    _data.Wday   = (((rawTime / 86400L) + 4 ) % 7);
+
+    // Now set to be in-days.
+    rawTime /= 86400L;
+
+    // Setup.
     unsigned long days = 0, year = 1970;
     uint8_t month;
     static const uint8_t monthDays[]={31,28,31,30,31,30,31,31,30,31,30,31};
 
+    // Walk forward until we've found the number of years.
     while((days += (LEAP_YEAR(year) ? 366 : 365)) <= rawTime)
         year++;
-    rawTime -= days - (LEAP_YEAR(year) ? 366 : 365); // now it is days in this year, starting at 0
+
+    // now it is days in this year, starting at 0
+    rawTime -= days - (LEAP_YEAR(year) ? 366 : 365);
     days=0;
-    for (month=0; month<12; month++) {
+
+    // Count forward until we've run out of days.
+    for (month=0; month<12; month++)
+    {
         uint8_t monthLength;
-        if (month==1) { // february
+        if (month==1) {
+            // february
             monthLength = LEAP_YEAR(year) ? 29 : 28;
         } else {
             monthLength = monthDays[month];
         }
-        if (rawTime < monthLength) break;
+        if (rawTime < monthLength)
+            break;
         rawTime -= monthLength;
     }
-    return(rawTime+1);
+
+    /*
+     * Store these final values.
+     */
+    _data.Month = month + 1;
+    _data.Year = year;
+    _data.Day  = rawTime + 1;
+
+    return(_data);
 }
 
+
 String NTPClient::getFormattedTime() {
-  unsigned long rawTime = this->getEpochTime();
-  unsigned long hours = (rawTime % 86400L) / 3600;
-  String hoursStr = hours < 10 ? "0" + String(hours) : String(hours);
 
-  unsigned long minutes = (rawTime % 3600) / 60;
-  String minuteStr = minutes < 10 ? "0" + String(minutes) : String(minutes);
+    char buf[128] = {'\0'};
+    snprintf(buf, sizeof(buf)-1, "%02d:%02d:%02d - %s %02d/%02d/%04d" , _data.Hour, _data.Minute, _data.Second, this->getWeekDay().c_str(),_data.Day, _data.Month, _data.Year  );
 
-  unsigned long seconds = rawTime % 60;
-  String secondStr = seconds < 10 ? "0" + String(seconds) : String(seconds);
-
-  return hoursStr + ":" + minuteStr + ":" + secondStr;
+    return(buf);
 }
 
 void NTPClient::end() {

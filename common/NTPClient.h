@@ -10,8 +10,25 @@
 
 
 extern "C" {
-  typedef void (*callbackFunction)(void);
+    /*
+     * Signature for our callback functions(s)
+     */
+    typedef void (*callbackFunction)(void);
+
+    /*
+     * The time-data as a structure.
+     */
+    typedef struct  {
+        int Second;
+        int Minute;
+        int Hour;
+        int Wday;
+        int Day;
+        int Month;
+        int Year;
+    } time_data;
 }
+
 
 class NTPClient {
   private:
@@ -31,8 +48,16 @@ class NTPClient {
 
     void          sendNTPPacket();
 
+    /*
+     * Callback handles.
+     */
     callbackFunction on_before = NULL;
     callbackFunction on_after  = NULL;
+
+    /*
+     * The current time-data
+     */
+    time_data _data;
 
   public:
     NTPClient(UDP& udp);
@@ -84,17 +109,22 @@ class NTPClient {
     int getMinutes();
     int getSeconds();
 
-    // The day of the month.
+    // The day of the month
     int getDayOfMonth();
 
-    // The month name, abbreviated.
-    String getMonth();
+    // The month name, as a string.
+    String getMonth( bool abbreviate = true);
 
-    // The week-day, abbreviated.
-    String getWeekDay();
+    // The week-day, as a string.
+    String getWeekDay(bool abbreviate = true);
 
     // The year.
     int getYear();
+
+    /**
+     * Return the time-data as a structure.
+     */
+    time_data parse_date_time();
 
     /**
      * Changes the time offset. Useful for changing timezones dynamically
