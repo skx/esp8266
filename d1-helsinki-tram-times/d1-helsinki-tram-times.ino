@@ -266,6 +266,16 @@ void setup()
     //
     draw_line(0, "Starting up ..");
 
+   //
+   // Horrid Hack
+   //
+#if 0
+   IPAddress ip(10,0,0,90);
+   IPAddress gateway(10,0,0,1);
+   IPAddress subnet(255, 255, 255, 0);
+   WiFi.config(ip, gateway, subnet);
+#endif
+
     //
     // Handle Connection.
     //
