@@ -1,6 +1,29 @@
 //
-// A button wired between D0 & D8 to publish an alarm notification via MQ.
+// Internet-Button - https://steve.fi/Hardware/
 //
+// This project is a simple hardware button which will connect to your
+// WiFi-network and allow an action to be triggered via the button being
+// pressed.  We support two distinct button-press events:
+//
+//  * A short press (+release).
+//  * A long press (+release).
+//
+// To allow flexible handling the button-presses trigger sending a message
+// to an MQ bus, with a payload like so:
+//
+//   {"click":"short","mac":"AA:BB:CC:DD:EE:FF"}
+//   {"click":"long","mac":"AA:BB:CC:DD:EE:FF"}
+//
+// ("mac" is obviously the MAC-address of the board.)
+//
+// Physically we just have a button wired between D0 & D8.  In the future
+// it is possible to imagine multiple buttons :)
+//
+//
+// Steve
+// --
+//
+
 
 
 //
@@ -56,18 +79,27 @@
 //
 #include "PubSubClient.h"
 #include "info.h"
-const char* mqtt_server = "192.168.10.64";
+
+//
+// End-point for sending messages to.
+//
+const char* mqtt_server = "10.0.0.10";
+
+//
+// Create the MQ-client.
+//
 WiFiClient espClient;
 PubSubClient client(espClient);
+
+//
+// Utility class for dumping board-information.
+//
 info board_info;
-
-
 
 //
 // Setup a new OneButton on pin D8.
 //
 OneButton button(D8, false);
-
 
 //
 // Are there pending clicks to process?
@@ -345,5 +377,4 @@ void reconnect()
             delay(5000);
         }
     }
-
 }
