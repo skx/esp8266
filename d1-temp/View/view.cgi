@@ -191,7 +191,7 @@ sub show_menu
     #
     #  Select the devices
     #
-    my $sql = $dbh->prepare("SELECT DISTINCT(mac) FROM devices");
+    my $sql = $dbh->prepare("SELECT DISTINCT(mac) FROM readings");
     $sql->execute();
 
     my $mac;

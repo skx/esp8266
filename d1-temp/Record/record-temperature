@@ -37,10 +37,6 @@ $mqtt->run(
         {
             record_temperature($message);
         }
-        elsif ( $topic eq "meta" )
-        {
-            record_device($message);
-        }
         else
         {
             print "Ignoring topic:$topic -> $message\n";
@@ -69,27 +65,10 @@ sub get_db
     #  Create the tables, if these fail that's fine.
     #
     $dbh->do(
-        "CREATE TABLE IF NOT EXISTS devices (id INTEGER PRIMARY KEY, hostname TEXT, ip TEXT, mac TEXT)"
-    );
-    $dbh->do(
         "CREATE TABLE IF NOT EXISTS readings (id INTEGER PRIMARY KEY, temperature TEXT, humidity TEXT, mac TEXT, recorded INTEGER)"
     );
 
     return $dbh;
-}
-
-sub record_device
-{
-    my ($msg) = (@_);
-
-    my $json = JSON->new->allow_nonref;
-    my $obj  = $json->decode($msg);
-
-    my $sql =
-      $db->prepare("INSERT INTO devices (hostname,ip,mac) VALUES(?,?,?)");
-    $sql->execute( $obj->{ 'hostname' }, $obj->{ 'ip' }, $obj->{ 'mac' } );
-    $sql->finish();
-
 }
 
 sub record_temperature
