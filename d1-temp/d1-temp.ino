@@ -43,13 +43,26 @@
 
 
 //
-// Include the MQQ library, and define our server.
+// Include the MQQ library and our info-dump class
 //
 #include "PubSubClient.h"
 #include "info.h"
-const char* mqtt_server = "192.168.10.64";
+
+
+//
+// Address of our MQ queue
+//
+const char* mqtt_server = "10.0.0.10";
+
+//
+// Create an MQ client.
+//
 WiFiClient espClient;
 PubSubClient client(espClient);
+
+//
+// Helper to dump our details.
+//
 info board_info;
 
 
@@ -191,6 +204,12 @@ void setup()
     // Show that we're connecting to the WiFi.
     //
     DEBUG_LOG("WiFi connecting: ");
+    DEBUG_LOG( "SSID: " );
+    DEBUG_LOG( WIFI_SSID );
+    DEBUG_LOG( "\n" );
+    DEBUG_LOG( "Password: " );
+    DEBUG_LOG( WIFI_PASS );
+    DEBUG_LOG( "\n" );
 
     //
     // Try to connect to WiFi, constantly.
