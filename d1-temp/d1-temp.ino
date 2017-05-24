@@ -114,7 +114,6 @@ void measureDHT()
     // Make a reading
     //
     dht DHT;
-
     int chk = DHT.read22(DHTPIN);
 
     //
@@ -129,15 +128,15 @@ void measureDHT()
         Serial.print(DHT.temperature, 1);
         Serial.println();
 
-        // Send it away
+        // Format it.
         String payload = "{\"temperature\":" + String(DHT.temperature) +
                          ",\"humidity\":" + String(DHT.humidity) +
                          ",\"mac\":\"" + board_info.mac() + "\"}";
 
-        // Publish
+        // Publish it
         client.publish("temperature", payload.c_str());
 
-        // Record
+        // Record so that the HTTP-server can serve it.
         last_temperature = DHT.temperature;
         last_humidity = DHT.temperature;
 
@@ -146,7 +145,13 @@ void measureDHT()
     }
     else
     {
-        // SHow the error
+        //
+        // Failure to read the details.
+        //
+
+        //
+        // Try to work out what kind of failure it was.
+        //
         switch (chk)
         {
         case DHTLIB_OK:
@@ -196,11 +201,30 @@ void setup()
     Serial.begin(115200);
 
     //
-    // Handle WiFi setup
+    // Configure a sane hostname.
     //
-    WiFi.hostname(PROJECT_NAME);
+    String id = PROJECT_NAME;
+    id += ".";
+    id += board_info.mac();
+
+    //
+    // Show the hostname for debugging
+    // purposes.
+    //
+    DEBUG_LOG("\nDevice: ");
+    DEBUG_LOG(id);
+    DEBUG_LOG("\n");
+
+
+    //
+    // Set the hostname, and configure
+    // the WiFi manager library to
+    // work as an access-point, or join
+    // the previously saved network.
+    //
+    WiFi.hostname(id);
     WiFiManager wifiManager;
-    wifiManager.autoConnect(PROJECT_NAME);
+    wifiManager.autoConnect(id.c_str());
 
     //
     // Now we're connected show the local IP address.
