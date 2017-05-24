@@ -17,6 +17,11 @@
 #include <ArduinoOTA.h>
 #include <ESP8266HTTPClient.h>
 
+//
+// We read/write to SPIFSS.
+//
+#include <FS.h>
+
 
 //
 // DHT11 / DHT22 sensor interface
@@ -43,9 +48,12 @@
 //
 // Address of our MQ queue
 //
-// TODO: Allow this to be set via the HTTP-server
+char mqtt_server[64] = { '\0' };
+
 //
-const char* mqtt_server = "10.0.0.10";
+// The default value if nothing is configured.
+//
+#define DEFAULT_MQ_SERVER  "10.0.0.10"
 
 //
 // Create an MQ client.
@@ -201,6 +209,11 @@ void setup()
     Serial.begin(115200);
 
     //
+    // Enable access to the filesystem.
+    //
+    SPIFFS.begin();
+
+    //
     // Configure a sane hostname.
     //
     String id = PROJECT_NAME;
@@ -290,6 +303,20 @@ void setup()
     DEBUG_LOG("http://");
     DEBUG_LOG(WiFi.localIP().toString().c_str());
     DEBUG_LOG("\n");
+
+    //
+    // Load the MQ address, if we can.
+    //
+    String mq_str = read_file("/mq.addr");
+
+    //
+    // If we did make it live, otherwise use the default value.
+    //
+    if (mq_str.length() > 0)
+        strcpy(mqtt_server, mq_str.c_str());
+    else
+        strncpy(mqtt_server, DEFAULT_MQ_SERVER, sizeof(mqtt_server) - 1);
+
 
     //
     // Setup our pub-sub connection.
@@ -436,6 +463,45 @@ void processHTTPRequest(WiFiClient client)
     String request = client.readStringUntil('\r');
     client.flush();
 
+    // Change the MQ server?
+    if (request.indexOf("/?mq=") != -1)
+    {
+        char *pattern = "/?mq=";
+        char *s = strstr(request.c_str(), pattern);
+
+        if (s != NULL)
+        {
+            // Temporary holder for the value - as a string.
+            char tmp[64] = { '\0' };
+
+            // Skip past the pattern.
+            s += strlen(pattern);
+
+            // Add characters until we come to a terminating character.
+            for (int i = 0; i < strlen(s); i++)
+            {
+                if ((s[i] != ' ') && (s[i] != '&'))
+                    tmp[strlen(tmp)] = s[i];
+                else
+                    break;
+            }
+
+            // Write the data to a file.
+            write_file("/mq.addr", tmp);
+
+            // Update the queue address
+            memset(mqtt_server, '\0', sizeof(mqtt_server));
+            strncpy(mqtt_server, tmp, sizeof(mqtt_server) - 1);
+
+            // TODO - force reconnect
+        }
+
+        // Redirect to the server-root
+        redirectIndex(client);
+        return;
+    }
+
+
     // Return a simple response
     serveHTML(client);
 
@@ -510,9 +576,83 @@ void serveHTML(WiFiClient client)
     client.println("<div class=\"col-md-4\"></div>");
     client.println("</div>");
 
+    // Row
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-3\"></div>");
+    client.println("<div class=\"col-md-9\"> <h2>Network Details</h2></div>");
+    client.println("</div>");
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("<div class=\"col-md-4\">");
+    client.print("<p>This device has the IP address <code>");
+    client.print(WiFi.localIP());
+    client.println("</code>, and is configured to send data to the following MQ server:</p>");
+    client.println("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"mq\" value=\"");
+    client.print(mqtt_server);
+    client.println("\"><input type=\"submit\" value=\"Update\"></form>");
+    client.println("</div>");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("</div>");
+
     // End of body
     client.println("</div>");
     client.println("</body>");
     client.println("</html>");
 
+}
+
+
+
+
+
+//
+// Open the given file for writing, and write
+// out the specified data.
+//
+void write_file(const char *path, const char *data)
+{
+    File f = SPIFFS.open(path, "w");
+
+    if (f)
+    {
+        DEBUG_LOG("Writing file:");
+        DEBUG_LOG(path);
+        DEBUG_LOG(" data:");
+        DEBUG_LOG(data);
+        DEBUG_LOG("\n");
+
+        f.println(data);
+        f.close();
+    }
+}
+
+//
+// Read a single line from a given file, and return it.
+//
+// This function explicitly filters out `\r\n`, and only
+// reads the first line of the text.
+//
+String read_file(const char *path)
+{
+    String line;
+
+    File f = SPIFFS.open(path, "r");
+
+    if (f)
+    {
+        line = f.readStringUntil('\n');
+        f.close();
+    }
+
+
+    String result;
+
+    for (int i = 0; i < line.length() ; i++)
+    {
+        if ((line[i] != '\n') &&
+                (line[i] != '\r'))
+            result += line[i];
+    }
+
+    return (result);
 }
