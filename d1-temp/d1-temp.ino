@@ -1,9 +1,13 @@
 //
-//   Temperature/Humidity Reporter - https://steve.fi/Hardware/
+//  Temperature/Humidity Reporter - https://steve.fi/Hardware/
 //
-//   This program will connect to your WiFi network, serving as
-//  an access-port if no valid credentials are found, then submit
-//  temp/humidity values to a local CGI-script.
+// This program will connect to your WiFi network, serving as
+// an access-port if no valid credentials are found.
+//
+//  Once connected the current humidity and temperature values
+// will be submitted to a central MQ topic once every minute.
+// the values will also be available in real-time via a built-in
+// HTTP-server.
 //
 //   Steve
 //   --
@@ -20,27 +24,9 @@
 #include "dht.h"
 
 //
-// The pin we're connecting the sensor to
+// The user-friendly WiFI library?
 //
-#define DHTPIN D4
-
-//
-// Use the user-friendly WiFI library?
-//
-// If you don't want to use this then comment out the following line:
-//
-#define WIFI_MANAGER
-
-//
-//  Otherwise define a SSID / Password
-//
-#ifdef WIFI_MANAGER
 # include "WiFiManager.h"
-#else
-# define WIFI_SSID "SCOTLAND"
-# define WIFI_PASS "highlander1"
-#endif
-
 
 //
 // Include the MQQ library and our info-dump class
@@ -50,7 +36,14 @@
 
 
 //
+// The pin we're connecting the sensor to
+//
+#define DHTPIN D4
+
+//
 // Address of our MQ queue
+//
+// TODO: Allow this to be set via the HTTP-server
 //
 const char* mqtt_server = "10.0.0.10";
 
@@ -64,6 +57,21 @@ PubSubClient client(espClient);
 // Helper to dump our details.
 //
 info board_info;
+
+
+//
+// Last temperature & humidity values which have
+// been read.
+//
+static double last_humidity    = -1;
+static double last_temperature = -1;
+
+
+
+//
+// The HTTP-server we present runs on port 80.
+//
+WiFiServer server(80);
 
 
 //
@@ -96,9 +104,8 @@ info board_info;
 
 
 //
-// Measure the temperature + humidity.
-//
-// Post to remote CGI-script AND publish in MQ.
+// Measure the temperature + humidity, then post that to the "temperature"
+// topic in MQ.
 //
 void measureDHT()
 {
@@ -129,6 +136,11 @@ void measureDHT()
 
         // Publish
         client.publish("temperature", payload.c_str());
+
+        // Record
+        last_temperature = DHT.temperature;
+        last_humidity = DHT.temperature;
+
         return;
 
     }
@@ -138,31 +150,32 @@ void measureDHT()
         switch (chk)
         {
         case DHTLIB_OK:
-            Serial.println("OK");
             break;
 
         case DHTLIB_ERROR_CHECKSUM:
-            Serial.println("Checksum error.");
+            DEBUG_LOG("Checksum error.\n");
             break;
 
         case DHTLIB_ERROR_TIMEOUT:
-            Serial.println("Time out error.");
+            DEBUG_LOG("Time out error.\n");
             break;
 
         case DHTLIB_ERROR_CONNECT:
-            Serial.println("Connect error");
+            DEBUG_LOG("Connect error.\n");
             break;
 
         case DHTLIB_ERROR_ACK_L:
-            Serial.println("Ack Low error.");
+            DEBUG_LOG("Ack Low error.\n");
             break;
 
         case DHTLIB_ERROR_ACK_H:
-            Serial.println("Ack High error.");
+            DEBUG_LOG("Ack High error.\n");
             break;
 
         default:
-            Serial.println("Unknown error");
+            DEBUG_LOG("Unknown error: ");
+            DEBUG_LOG(chk);
+            DEBUG_LOG("\n");
             break;
         }
 
@@ -185,43 +198,10 @@ void setup()
     //
     // Handle WiFi setup
     //
-#ifdef WIFI_MANAGER
-
     WiFi.hostname(PROJECT_NAME);
     WiFiManager wifiManager;
     wifiManager.autoConnect(PROJECT_NAME);
 
-#else
-    //
-    // Connect to the WiFi network, and set a sane
-    // hostname so we can ping it by name.
-    //
-    WiFi.mode(WIFI_STA);
-    WiFi.hostname(PROJECT_NAME);
-    WiFi.begin(WIFI_SSID, WIFI_PASS);
-
-    //
-    // Show that we're connecting to the WiFi.
-    //
-    DEBUG_LOG("WiFi connecting: ");
-    DEBUG_LOG( "SSID: " );
-    DEBUG_LOG( WIFI_SSID );
-    DEBUG_LOG( "\n" );
-    DEBUG_LOG( "Password: " );
-    DEBUG_LOG( WIFI_PASS );
-    DEBUG_LOG( "\n" );
-
-    //
-    // Try to connect to WiFi, constantly.
-    //
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        DEBUG_LOG(".");
-        delay(500);
-    }
-
-
-#endif
     //
     // Now we're connected show the local IP address.
     //
@@ -230,7 +210,7 @@ void setup()
     DEBUG_LOG("\n");
 
     //
-    // The final step is to allow over the air updates
+    // Allow over the air updates
     //
     // This is documented here:
     //     https://randomnerdtutorials.com/esp8266-ota-updates-with-arduino-ide-over-the-air/
@@ -279,6 +259,15 @@ void setup()
     ArduinoOTA.begin();
 
     //
+    // Start our HTTP server
+    //
+    server.begin();
+    DEBUG_LOG("HTTP-Server started on ");
+    DEBUG_LOG("http://");
+    DEBUG_LOG(WiFi.localIP().toString().c_str());
+    DEBUG_LOG("\n");
+
+    //
     // Setup our pub-sub connection.
     //
     client.setServer(mqtt_server, 1883);
@@ -324,6 +313,19 @@ void loop()
         measureDHT();
         last_read = now;
     }
+
+
+    //
+    // Check if a client has connected to our HTTP-server.
+    //
+    // If so handle it.
+    //
+    // (This allows changing the stop, timezone, backlight, etc.)
+    //
+    WiFiClient client = server.available();
+
+    if (client)
+        processHTTPRequest(client);
 
 }
 
@@ -389,5 +391,104 @@ void reconnect()
             delay(5000);
         }
     }
+
+}
+
+
+
+
+
+
+//
+// Process an incoming HTTP-request.
+//
+void processHTTPRequest(WiFiClient client)
+{
+    // Wait until the client sends some data
+    while (client.connected() && !client.available())
+        delay(1);
+
+    // Read the first line of the request
+    String request = client.readStringUntil('\r');
+    client.flush();
+
+    // Return a simple response
+    serveHTML(client);
+
+}
+
+
+//
+// Serve a redirect to the server-root
+//
+void redirectIndex(WiFiClient client)
+{
+    client.println("HTTP/1.1 302 Found");
+    client.print("Location: http://");
+    client.print(WiFi.localIP().toString().c_str());
+    client.println("/");
+}
+
+
+//
+// This is a bit horrid.
+//
+// Serve a HTML-page to any clients who connect, via a browser.
+//
+void serveHTML(WiFiClient client)
+{
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: text/html");
+    client.println("");
+
+    client.println("<!DOCTYPE html>");
+    client.println("<html lang=\"en\">");
+    client.println("<head>");
+    client.println("<title>Temperature &amp; Humidity</title>");
+    client.println("<meta charset=\"utf-8\">");
+    client.println("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">");
+    client.println("<link href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css\" rel=\"stylesheet\" integrity=\"sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u\" crossorigin=\"anonymous\">");
+    client.println("<script src=\"//code.jquery.com/jquery-1.12.4.min.js\"></script>");
+    client.println("<script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js\" integrity=\"sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa\" crossorigin=\"anonymous\"></script>");
+    client.println("</head>");
+    client.println("<body>");
+    client.println("<nav id=\"nav\" class = \"navbar navbar-default\" style=\"padding-left:50px; padding-right:50px;\">");
+    client.println("<div class = \"navbar-header\">");
+    client.println("<h1 class=\"banner\"><a href=\"/\">Temperature &amp; Humidity</a> - <small>by Steve</small></h1>");
+    client.println("</div>");
+    client.println("<ul class=\"nav navbar-nav navbar-right\">");
+    client.println("<li><a href=\"https://steve.fi/Hardware/\">Steve's Projects</a></li>");
+    client.println("</ul>");
+    client.println("</nav>");
+    client.println("<div class=\"container-fluid\">");
+
+    // Start of body
+    // Row
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-3\"></div>");
+    client.println("<div class=\"col-md-9\"><h1>Temperature &amp; Humidity</h1><p>&nbsp;</p></div>");
+    client.println("</div>");
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("<div class=\"col-md-4\">");
+    client.println("<table class=\"table table-striped table-hover table-condensed table-bordered\">");
+
+    client.println("<tr><td>Temperature</td><td> ");
+    client.println(last_temperature);
+    client.println("</td></tr>");
+
+    client.println("<tr><td>Humidity</td><td> ");
+    client.println(last_humidity);
+    client.println("</td></tr>");
+
+    client.println("</table>");
+    client.println("</div>");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("</div>");
+
+    // End of body
+    client.println("</div>");
+    client.println("</body>");
+    client.println("</html>");
 
 }
