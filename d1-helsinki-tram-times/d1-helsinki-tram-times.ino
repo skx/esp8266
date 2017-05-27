@@ -202,6 +202,13 @@ bool backlight = true;
 //
 OneButton button(D8, false);
 
+//
+// Display mode
+//
+typedef enum {ABSOLUTE, RELATIVE} time_mode;
+time_mode g_time_mode = ABSOLUTE;
+
+
 
 //
 // Are there pending clicks to process?
@@ -266,14 +273,14 @@ void setup()
     //
     draw_line(0, "Starting up ..");
 
-   //
-   // Horrid Hack
-   //
+    //
+    // Horrid Hack
+    //
 #if 0
-   IPAddress ip(10,0,0,90);
-   IPAddress gateway(10,0,0,1);
-   IPAddress subnet(255, 255, 255, 0);
-   WiFi.config(ip, gateway, subnet);
+    IPAddress ip(10, 0, 0, 90);
+    IPAddress gateway(10, 0, 0, 1);
+    IPAddress subnet(255, 255, 255, 0);
+    WiFi.config(ip, gateway, subnet);
 #endif
 
     //
@@ -303,8 +310,8 @@ void setup()
     //
     // Configure the callbacks.
     //
-    timeClient.on_before_update( on_before_ntp );
-    timeClient.on_after_update( on_after_ntp );
+    timeClient.on_before_update(on_before_ntp);
+    timeClient.on_after_update(on_after_ntp);
 
     //
     // Setup the timezone & update-interval.
@@ -324,7 +331,7 @@ void setup()
     DEBUG_LOG("\n");
 
     //
-    // The final step is to allow over the air updates
+    // Allow over the air updates
     //
     // This is documented here:
     //     https://randomnerdtutorials.com/esp8266-ota-updates-with-arduino-ide-over-the-air/
@@ -454,7 +461,6 @@ void loop()
     //
     static char prev_time[NUM_COLS] = { '\0'};
 
-
     //
     // Handle any pending over the air updates.
     //
@@ -464,7 +470,6 @@ void loop()
     // Resync the clock?
     //
     timeClient.update();
-
 
     //
     // Process the button - looking for clicks, double-clicks,
@@ -603,33 +608,12 @@ void handlePendingButtons()
     //
     if (double_click)
     {
-        double_click = false;
-        DEBUG_LOG("Double Click\n");
-
-        char line[NUM_COLS + 1];
-
-        // Line 0 - About
-        draw_line(0, "Steve Kemp - Trams");
-
-        // Line 1 - IP
-        snprintf(line, NUM_COLS, "IP: %s", WiFi.localIP().toString().c_str());
-        draw_line(1, line);
-
-        // Line 2 - Timezone
-        if (time_zone_offset > 0)
-            snprintf(line, NUM_COLS, "Timezone: +%d", time_zone_offset);
-        else if (time_zone_offset < 0)
-            snprintf(line, NUM_COLS, "Timezone: -%d", time_zone_offset);
+        if (g_time_mode == ABSOLUTE)
+            g_time_mode = RELATIVE;
         else
-            snprintf(line, NUM_COLS, "Timezone: %d", time_zone_offset);
+            g_time_mode = ABSOLUTE;
 
-        draw_line(2, line);
-
-        // Line 3 - Tram ID
-        snprintf(line, NUM_COLS, "Tram ID : %s", tram_stop);
-        draw_line(3, line);
-
-        delay(2500);
+        double_click = false;
     }
 
 
@@ -720,6 +704,8 @@ void update_tram_times(const char *txt)
 
                 strncpy(id, pch, (comma - pch) >= sizeof(id) ? sizeof(id) - 1 : (comma - pch));
 
+                int hours = -1;
+                int mins  = -1;
 
                 //
                 // Now we have comma pointing to ",HH:MM:SS,DESCRIPTION-HERE"
@@ -734,13 +720,59 @@ void update_tram_times(const char *txt)
                 if (comma[9] == ',')
                 {
                     strncpy(tm, comma + 1 , 5);
+
+                    //
+                    // Setup hours / mins
+                    //
+                    char t[3];
+                    t[0] = comma[1];
+                    t[1] = comma[2];
+                    t[3] = '\0';
+                    hours = atoi(t);
+
+                    t[0] = comma[4];
+                    t[1] = comma[5];
+                    t[3] = '\0';
+                    mins = atoi(t);
+
                 }
 
                 //
                 // Now we format the line of the screen with the data.
                 //
-                snprintf(screen[line], NUM_COLS - 1,
-                         "  Line %s @ %s", id, tm);
+                if (g_time_mode == RELATIVE)
+                {
+                    if ((hours >= 0) && (mins >= 0))
+                    {
+                        int then = hours * 60 + mins;
+                        DEBUG_LOG("Hours: ");
+                        DEBUG_LOG(hours);
+                        DEBUG_LOG(" mins: ");
+                        DEBUG_LOG(mins);
+                        DEBUG_LOG(" is ");
+                        DEBUG_LOG(then);
+                        DEBUG_LOG("\n");
+
+                        int now  = (timeClient.getHours() * 60) + timeClient.getMinutes();
+                        DEBUG_LOG("Now is ");
+                        DEBUG_LOG(now);
+                        DEBUG_LOG("\n");
+
+                        int diff = then - now;
+                        DEBUG_LOG("That's ");
+                        DEBUG_LOG(diff);
+                        DEBUG_LOG(" minutes.\n");
+
+                        snprintf(screen[line], NUM_COLS - 1,
+                                 " Line %s in %d mins", id, diff);
+                    }
+                }
+
+                if (g_time_mode == ABSOLUTE)
+                {
+                    snprintf(screen[line], NUM_COLS - 1,
+                             "  Line %s @ %s", id, tm);
+                }
 
             }
 
