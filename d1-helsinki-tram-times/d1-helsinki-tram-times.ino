@@ -610,10 +610,18 @@ void handlePendingButtons()
     {
         if (g_time_mode == ABSOLUTE)
             g_time_mode = RELATIVE;
-        else
+        else if ( g_time_mode == RELATIVE )
             g_time_mode = ABSOLUTE;
 
+        //
+        // Trigger an update to make the change
+        // "immediate".
+        //
+        fetch_tram_times();
+
         double_click = false;
+
+
     }
 
 
@@ -764,7 +772,7 @@ void update_tram_times(const char *txt)
                         DEBUG_LOG(" minutes.\n");
 
                         snprintf(screen[line], NUM_COLS - 1,
-                                 " Line %s in %d mins", id, diff);
+                                 "Line %s in %02d mins", id, diff);
                     }
                 }
 
