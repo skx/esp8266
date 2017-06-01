@@ -19,11 +19,19 @@
 // Physically we just have a button wired between D0 & D8.  In the future
 // it is possible to imagine multiple buttons :)
 //
+// There is a default MQ address configured, 10.0.0.10, but you can
+// point your web-browser at the device to change this.
+//
 //
 // Steve
 // --
 //
 
+
+//
+// We read/write to SPIFSS.
+//
+#include <FS.h>
 
 
 //
@@ -61,6 +69,7 @@
 //
 #include "WiFiManager.h"
 
+
 //
 // WiFi & over the air updates
 //
@@ -75,15 +84,28 @@
 
 
 //
-// Include the MQQ library, and define our server.
+// Include the MQQ library.
 //
 #include "PubSubClient.h"
 #include "info.h"
 
+
 //
-// End-point for sending messages to.
+// The HTTP-server we present runs on port 80.
 //
-const char* mqtt_server = "10.0.0.10";
+WiFiServer server(80);
+
+
+//
+// Address of our MQ queue
+//
+char mqtt_server[64] = { '\0' };
+
+//
+// The default server-address if nothing is configured.
+//
+#define DEFAULT_MQ_SERVER  "10.0.0.10"
+
 
 //
 // Create the MQ-client.
@@ -119,6 +141,11 @@ void setup()
     Serial.begin(115200);
 
     //
+    // Enable access to the filesystem.
+    //
+    SPIFFS.begin();
+
+    //
     // Handle WiFi setup.
     //
     WiFiManager wifiManager;
@@ -133,7 +160,7 @@ void setup()
     DEBUG_LOG("\n");
 
     //
-    // The final step is to allow over the air updates
+    // Allow over the air updates
     //
     // This is documented here:
     //     https://randomnerdtutorials.com/esp8266-ota-updates-with-arduino-ide-over-the-air/
@@ -144,33 +171,32 @@ void setup()
 
     ArduinoOTA.onStart([]()
     {
-        DEBUG_LOG("OTA Start");
+        DEBUG_LOG("OTA Start\n");
     });
     ArduinoOTA.onEnd([]()
     {
-        DEBUG_LOG("OTA Ended");
+        DEBUG_LOG("OTA Ended\n");
     });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
     {
         char buf[32];
         memset(buf, '\0', sizeof(buf));
-        snprintf(buf, sizeof(buf) - 1, "Upgrade - %02u%%", (progress / (total / 100)));
+        snprintf(buf, sizeof(buf) - 1, "Upgrade - %02u%%\n", (progress / (total / 100)));
         DEBUG_LOG(buf);
-        DEBUG_LOG("\n");
 
     });
     ArduinoOTA.onError([](ota_error_t error)
     {
         if (error == OTA_AUTH_ERROR)
-            DEBUG_LOG("Auth Failed");
+            DEBUG_LOG("\tAuth Failed\n");
         else if (error == OTA_BEGIN_ERROR)
-            DEBUG_LOG("Begin Failed");
+            DEBUG_LOG("\tBegin Failed\n");
         else if (error == OTA_CONNECT_ERROR)
-            DEBUG_LOG("Connect Failed");
+            DEBUG_LOG("\tConnect Failed\n");
         else if (error == OTA_RECEIVE_ERROR)
-            DEBUG_LOG("Receive Failed");
+            DEBUG_LOG("\tReceive Failed\n");
         else if (error == OTA_END_ERROR)
-            DEBUG_LOG("End Failed");
+            DEBUG_LOG("\tEnd Failed\n");
     });
 
     //
@@ -179,10 +205,16 @@ void setup()
     ArduinoOTA.begin();
 
     //
-    // We have a switch between D8 & D0.
+    // Start our HTTP server
     //
-    // If this is missing no harm will be done, it will just
-    // never receive any clicks :)
+    server.begin();
+    DEBUG_LOG("HTTP-Server started on ");
+    DEBUG_LOG("http://");
+    DEBUG_LOG(WiFi.localIP().toString().c_str());
+    DEBUG_LOG("\n");
+
+    //
+    // Our switch is wired between D8 & D0.
     //
     pinMode(D8, INPUT_PULLUP);
     pinMode(D0, OUTPUT);
@@ -193,6 +225,19 @@ void setup()
     //
     button.attachClick(on_short_click);
     button.attachLongPressStop(on_long_click);
+
+    //
+    // Load the MQ address, if we can.
+    //
+    String mq_str = read_file("/mq.addr");
+
+    //
+    // If we did make it live, otherwise use the default value.
+    //
+    if (mq_str.length() > 0)
+        strcpy(mqtt_server, mq_str.c_str());
+    else
+        strncpy(mqtt_server, DEFAULT_MQ_SERVER, sizeof(mqtt_server) - 1);
 
     //
     // Setup our pub-sub connection.
@@ -210,6 +255,7 @@ void on_short_click()
 {
     short_click = true;
 }
+
 
 //
 // Record that a long-click happened.
@@ -266,9 +312,18 @@ void loop()
     handlePendingButtons();
 
     //
-    // Now have a little rest.
+    // Check if a client has connected to our HTTP-server.
     //
-    delay(20);
+    // If so handle it.
+    //
+    // (This allows changing MQ address.)
+    //
+    WiFiClient client = server.available();
+
+    if (client)
+        processHTTPRequest(client);
+
+
 }
 
 
@@ -377,4 +432,188 @@ void reconnect()
             delay(5000);
         }
     }
+}
+
+
+
+//
+// Process an incoming HTTP-request.
+//
+void processHTTPRequest(WiFiClient client)
+{
+    // Wait until the client sends some data
+    while (client.connected() && !client.available())
+        delay(1);
+
+    // Read the first line of the request
+    String request = client.readStringUntil('\r');
+    client.flush();
+
+    // Change the MQ server?
+    if (request.indexOf("/?mq=") != -1)
+    {
+        char *pattern = "/?mq=";
+        char *s = strstr(request.c_str(), pattern);
+
+        if (s != NULL)
+        {
+            // Temporary holder for the value - as a string.
+            char tmp[64] = { '\0' };
+
+            // Skip past the pattern.
+            s += strlen(pattern);
+
+            // Add characters until we come to a terminating character.
+            for (int i = 0; i < strlen(s); i++)
+            {
+                if ((s[i] != ' ') && (s[i] != '&'))
+                    tmp[strlen(tmp)] = s[i];
+                else
+                    break;
+            }
+
+            // Write the data to a file.
+            write_file("/mq.addr", tmp);
+
+            // Update the queue address
+            memset(mqtt_server, '\0', sizeof(mqtt_server));
+            strncpy(mqtt_server, tmp, sizeof(mqtt_server) - 1);
+
+            // TODO - force reconnect
+        }
+
+        // Redirect to the server-root
+        redirectIndex(client);
+        return;
+    }
+
+
+    // Return a simple response
+    serveHTML(client);
+
+}
+
+
+//
+// Serve a redirect to the server-root
+//
+void redirectIndex(WiFiClient client)
+{
+    client.println("HTTP/1.1 302 Found");
+    client.print("Location: http://");
+    client.print(WiFi.localIP().toString().c_str());
+    client.println("/");
+}
+
+
+//
+// This is a bit horrid.
+//
+// Serve a HTML-page to any clients who connect, via a browser.
+//
+void serveHTML(WiFiClient client)
+{
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: text/html");
+    client.println("");
+
+    client.println("<!DOCTYPE html>");
+    client.println("<html lang=\"en\">");
+    client.println("<head>");
+    client.println("<title>Alarm Button</title>");
+    client.println("<meta charset=\"utf-8\">");
+    client.println("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">");
+    client.println("<link href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css\" rel=\"stylesheet\" integrity=\"sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u\" crossorigin=\"anonymous\">");
+    client.println("<script src=\"//code.jquery.com/jquery-1.12.4.min.js\"></script>");
+    client.println("<script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js\" integrity=\"sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa\" crossorigin=\"anonymous\"></script>");
+    client.println("</head>");
+    client.println("<body>");
+    client.println("<nav id=\"nav\" class = \"navbar navbar-default\" style=\"padding-left:50px; padding-right:50px;\">");
+    client.println("<div class = \"navbar-header\">");
+    client.println("<h1 class=\"banner\"><a href=\"/\">Alarm Button</a> - <small>by Steve</small></h1>");
+    client.println("</div>");
+    client.println("<ul class=\"nav navbar-nav navbar-right\">");
+    client.println("<li><a href=\"https://steve.fi/Hardware/\">Steve's Projects</a></li>");
+    client.println("</ul>");
+    client.println("</nav>");
+    client.println("<div class=\"container-fluid\">");
+
+    // Start of body
+
+    // Row
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-3\"></div>");
+    client.println("<div class=\"col-md-9\"> <h2>Network Details</h2></div>");
+    client.println("</div>");
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("<div class=\"col-md-4\">");
+    client.print("<p>This device has the IP address <code>");
+    client.print(WiFi.localIP());
+    client.println("</code>, and is configured to send data to the following MQ server:</p>");
+    client.println("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"mq\" value=\"");
+    client.print(mqtt_server);
+    client.println("\"><input type=\"submit\" value=\"Update\"></form>");
+    client.println("</div>");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("</div>");
+
+    // End of body
+    client.println("</div>");
+    client.println("</body>");
+    client.println("</html>");
+
+}
+
+
+//
+// Open the given file for writing, and write
+// out the specified data.
+//
+void write_file(const char *path, const char *data)
+{
+    File f = SPIFFS.open(path, "w");
+
+    if (f)
+    {
+        DEBUG_LOG("Writing file:");
+        DEBUG_LOG(path);
+        DEBUG_LOG(" data:");
+        DEBUG_LOG(data);
+        DEBUG_LOG("\n");
+
+        f.println(data);
+        f.close();
+    }
+}
+
+//
+// Read a single line from a given file, and return it.
+//
+// This function explicitly filters out `\r\n`, and only
+// reads the first line of the text.
+//
+String read_file(const char *path)
+{
+    String line;
+
+    File f = SPIFFS.open(path, "r");
+
+    if (f)
+    {
+        line = f.readStringUntil('\n');
+        f.close();
+    }
+
+
+    String result;
+
+    for (int i = 0; i < line.length() ; i++)
+    {
+        if ((line[i] != '\n') &&
+                (line[i] != '\r'))
+            result += line[i];
+    }
+
+    return (result);
 }

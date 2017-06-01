@@ -10,9 +10,9 @@ Transmitter
 -----------
 
 The ESP8266 is wired up with a simple button, when the button is
-pressed an event is sent through the MQ bus.
-
-There is nothing else to it.
+pressed an event is sent through the MQ bus.  The MQ server will
+default to 10.0.0.10, but you can change that by pointing your
+browser at the IP-address of the alarm.
 
 
 Receiver
