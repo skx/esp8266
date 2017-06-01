@@ -3,6 +3,18 @@
 This repository contains a small number of projects for use with/on the ESP8266 chip, as packaged by the WeMos Mini D1.
 
 
+## Template Project
+
+The [d1-template](d1-template) project is a skeleton which carries out the basic tasks many projects would require:
+
+* Connects to your local WiFi network.
+    * Acting as an access-point if it has not previously connected.
+* Refreshes the date/time via NTP.
+* Runs a mini webserver.
+
+This project is a good starting point for new work.
+
+
 ## Helsinki Tram Display
 
 The [d1-helsinki-tram-times](d1-helsinki-tram-times) project shows the departure times of Trams in Helsinki, and is more fully documented [on the project homepage](https://steve.fi/Hardware/helsinki-tram-times/).
