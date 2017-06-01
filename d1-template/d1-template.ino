@@ -198,7 +198,7 @@ void on_after_ntp()
 //
 void access_point_callback(WiFiManager* myWiFiManager)
 {
-    DEBUG_LOG("AccessPoint Mode Enabled");
+    DEBUG_LOG("AccessPoint Mode Enabled\n");
 }
 
 
@@ -212,7 +212,14 @@ void loop()
     // Keep the previous time, to avoid needless re-draws
     //
     static char prev_time[40] = { '\0'};
-    static char curr_time[40] = { '\0'};
+
+    //
+    // The current time.
+    //
+    // We'll format stuff here, and if the value are different
+    // from the previous-time we'll know we should output it.
+    //
+    char curr_time[40] = { '\0'};
 
     //
     // Handle any pending over the air updates.
@@ -227,15 +234,14 @@ void loop()
     //
     // Get the current time.
     //
-    // We save this so that we can test if we need to update the
-    // tram-time, which we do every two minutes.
-    //
-    //
     int hour = timeClient.getHours();
     int min  = timeClient.getMinutes();
     int sec  = timeClient.getSeconds();
     int year = timeClient.getYear();
 
+    //
+    // Along with names for things.
+    //
     String d_name = timeClient.getWeekDay();
     String m_name = timeClient.getMonth();
     int day = timeClient.getDayOfMonth();
@@ -255,6 +261,10 @@ void loop()
     if (strcmp(curr_time , prev_time) != 0)
     {
         DEBUG_LOG(curr_time);
+
+        //
+        // Record the current time.
+        //
         strcpy(prev_time, curr_time);
     }
 
@@ -262,8 +272,6 @@ void loop()
     // Check if a client has connected to our HTTP-server.
     //
     // If so handle it.
-    //
-    // (This allows changing the stop, timezone, backlight, etc.)
     //
     WiFiClient client = server.available();
 
@@ -292,8 +300,7 @@ void redirectIndex(WiFiClient client)
 //
 // This is a bit horrid.
 //
-// Serve a HTML-page to any clients who connect, via
-// a browser.
+// Serve a HTML-page to any clients who connect, via a browser.
 //
 void serveHTML(WiFiClient client)
 {
@@ -323,6 +330,7 @@ void serveHTML(WiFiClient client)
     client.println("<div class=\"container-fluid\">");
 
     // Start of body
+
     // Row
     client.println("<div class=\"row\">");
     client.println("<div class=\"col-md-3\"></div>");
@@ -358,18 +366,19 @@ void processHTTPRequest(WiFiClient client)
     String request = client.readStringUntil('\r');
     client.flush();
 
+#if 0
     //
     // Sample of how to handle a particular request
     //
-    //
-#if 0
-
     if (request.indexOf("/ON") != -1)
     {
-        backlight = true;
-        lcd.setBacklight(true);
+        //
+        // Do stuff here.
+        //
 
+        //
         // Redirect to the server-root
+        //
         redirectIndex(client);
         return;
     }
