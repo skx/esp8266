@@ -8,6 +8,7 @@
 //
 //   * Get the time/date via NTP.
 //
+//   * Launch a simple HTTP-server.
 //
 //   Steve
 //   --
