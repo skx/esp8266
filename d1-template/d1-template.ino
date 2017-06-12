@@ -15,36 +15,12 @@
 //
 
 
-//
-// The name of this project.
-//
-// Used for the Access-Point name, and for OTA-identification.
-//
-#define PROJECT_NAME "TEMPLATE"
-
-//
-// Should we enable debugging (via serial-console output) ?
-//
-// Use either `#undef DEBUG`, or `#define DEBUG`.
-//
-#define DEBUG
-
-
-//
-// If we did then DEBUG_LOG will log a string, otherwise
-// it will be ignored as a comment.
-//
-#ifdef DEBUG
-#  define DEBUG_LOG(x) Serial.print(x)
-#else
-#  define DEBUG_LOG(x)
-#endif
-
 
 //
 // WiFi manager library, for working as an access-point, etc.
 //
 #include "WiFiManager.h"
+
 
 //
 // WiFi & over the air updates
@@ -52,10 +28,43 @@
 #include <ESP8266WiFi.h>
 #include <ArduinoOTA.h>
 
+
 //
 // For dealing with NTP & the clock.
 //
 #include "NTPClient.h"
+
+
+
+//
+// The name of this project.
+//
+// Used for the Access-Point name, and for OTA-identification.
+//
+#define PROJECT_NAME "TEMPLATE"
+
+
+//
+// If this is defined we output debug-messages over the serial
+// console.
+//
+#define DEBUG 1
+
+//
+// Record a debug-message, only if `DEBUG` is defined
+//
+void DEBUG_LOG(const char *format, ...)
+{
+#ifdef DEBUG
+    char buff[1024] = {'\0'};
+    va_list arguments;
+    va_start(arguments, format);
+    vsnprintf(buff, sizeof(buff), format, arguments);
+    Serial.print(buff);
+    va_end(arguments);
+#endif
+}
+
 
 //
 // The NTP-client object.
@@ -76,7 +85,6 @@ WiFiServer server(80);
 
 
 
-
 //
 // This function is called when the device is powered-on.
 //
@@ -85,7 +93,9 @@ void setup()
     //
     // Enable our serial port.
     //
+#ifdef DEBUG
     Serial.begin(115200);
+#endif
 
     //
     // Handle Connection.
@@ -97,9 +107,8 @@ void setup()
     //
     // Now we're connected show the local IP address.
     //
-    DEBUG_LOG("\nWiFi Connected :");
-    DEBUG_LOG(WiFi.localIP().toString().c_str());
-    DEBUG_LOG("\n");
+    DEBUG_LOG("\nWiFi Connected with IP %s\n",
+              WiFi.localIP().toString().c_str());
 
     //
     // Ensure our NTP-client is ready.
@@ -123,10 +132,9 @@ void setup()
     // Now we can start our HTTP server
     //
     server.begin();
-    DEBUG_LOG("HTTP-Server started on ");
-    DEBUG_LOG("http://");
-    DEBUG_LOG(WiFi.localIP().toString().c_str());
-    DEBUG_LOG("\n");
+    DEBUG_LOG("HTTP-Server started on http://%s\n",
+              WiFi.localIP().toString().c_str());
+
 
     //
     // Allow over the air updates
@@ -140,11 +148,11 @@ void setup()
 
     ArduinoOTA.onStart([]()
     {
-        DEBUG_LOG("OTA Start");
+        DEBUG_LOG("OTA Started:");
     });
     ArduinoOTA.onEnd([]()
     {
-        DEBUG_LOG("OTA Ended");
+        DEBUG_LOG("OTA Ended.");
     });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
     {
@@ -180,7 +188,7 @@ void setup()
 //
 void on_before_ntp()
 {
-    DEBUG_LOG("Updating date & time\n");
+    DEBUG_LOG("Updating date & time:\n");
 }
 
 //
@@ -198,7 +206,7 @@ void on_after_ntp()
 //
 void access_point_callback(WiFiManager* myWiFiManager)
 {
-    DEBUG_LOG("AccessPoint Mode Enabled\n");
+    DEBUG_LOG("AccessPoint Mode Enabled.\n");
 }
 
 
@@ -367,6 +375,7 @@ void processHTTPRequest(WiFiClient client)
     client.flush();
 
 #if 0
+
     //
     // Sample of how to handle a particular request
     //
