@@ -7,39 +7,17 @@
 //
 #define PROJECT_NAME "12-LED-CLOCK"
 
-
+//
+// Include the fast-LED library
+//
 #include "FastLED.h"
 #define NUM_LEDS 12
 
-// Define the array of leds
-CRGB leds[NUM_LEDS];
-
-
 //
-// Should we enable debugging (via serial-console output) ?
+// WiFi
 //
-// Use either `#undef DEBUG`, or `#define DEBUG`.
-//
-#define DEBUG
-
-
-//
-// If we did then DEBUG_LOG will log a string, otherwise
-// it will be ignored as a comment.
-//
-#ifdef DEBUG
-#  define DEBUG_LOG(x) Serial.print(x)
-#else
-#  define DEBUG_LOG(x)
-#endif
-
 #include <ESP8266WiFi.h>
 
-
-//
-// The HTTP-server we present runs on port 80.
-//
-WiFiServer server(80);
 
 //
 // We read/write data to flash.
@@ -67,6 +45,44 @@ WiFiServer server(80);
 #include "NTPClient.h"
 
 
+
+//
+// Define the array of leds
+//
+CRGB leds[NUM_LEDS];
+
+
+//
+// If this is defined we output debug-messages over the serial
+// console.
+//
+#define DEBUG 1
+
+//
+// Record a debug-message, only if `DEBUG` is defined
+//
+void DEBUG_LOG(const char *format, ...)
+{
+#ifdef DEBUG
+    char buff[1024] = {'\0'};
+    va_list arguments;
+    va_start(arguments, format);
+    vsnprintf(buff, sizeof(buff), format, arguments);
+    Serial.print(buff);
+    va_end(arguments);
+#endif
+}
+
+
+//
+// The HTTP-server we present runs on port 80.
+//
+WiFiServer server(80);
+
+
+//
+// NTP-handler, and the UDP socket it uses
+//
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP);
 
@@ -78,6 +94,7 @@ NTPClient timeClient(ntpUDP);
 // This is the list of such states.
 //
 typedef enum {CLOCK, BLINK, SWEEP} state;
+
 
 //
 // Our current state
@@ -92,13 +109,18 @@ int time_zone_offset = 0;
 
 
 
+//
+// Setup Routine
+//
 void setup()
 {
 
     //
     // Enable our serial port.
     //
+#ifdef DEBUG
     Serial.begin(115200);
+#endif
 
     //
     // Enable access to the filesystem.
@@ -127,9 +149,8 @@ void setup()
     //
     // Now we're connected show the local IP address.
     //
-    DEBUG_LOG("WiFi Connected: ");
-    DEBUG_LOG(WiFi.localIP().toString().c_str());
-    DEBUG_LOG("\n");
+    DEBUG_LOG("WiFi Connected IP is %s\n",
+              WiFi.localIP().toString().c_str());
 
 
     //
@@ -139,9 +160,11 @@ void setup()
     timeClient.on_before_update( on_before_ntp );
     timeClient.on_after_update( on_after_ntp );
 
-    DEBUG_LOG("Timezone offset is ");
-    DEBUG_LOG(time_zone_offset);
-    DEBUG_LOG("\n");
+    DEBUG_LOG("Timezone offset is %d\n", time_zone_offset);
+
+    //
+    // Setup the Time Zone Offset
+    //
     timeClient.setTimeOffset(time_zone_offset * (60 * 60));
     timeClient.setUpdateInterval(300 * 1000 );
 
@@ -149,10 +172,8 @@ void setup()
     // Launch the HTTP-server
     //
     server.begin();
-    DEBUG_LOG("HTTP-Server started on ");
-    DEBUG_LOG("http://");
-    DEBUG_LOG(WiFi.localIP().toString().c_str());
-    DEBUG_LOG("\n");
+    DEBUG_LOG("HTTP-Server started on http://%s/\n",
+              WiFi.localIP().toString().c_str());
 
     //
     // Configure our LEDs
@@ -311,11 +332,7 @@ void draw_clock()
     int min = timeClient.getMinutes();
     int sec = timeClient.getSeconds();
 
-#ifdef DEBUG
-    char buf[40] = { '\0' };
-    snprintf(buf, sizeof(buf)-1, "The time is %02d:%02d:%02d\n", hur, min, sec );
-    DEBUG_LOG(buf);
-#endif
+    DEBUG_LOG("The current time is %02d:%02d:%02d\n", hur, min, sec );
 
 
     //
@@ -326,11 +343,7 @@ void draw_clock()
     min = min / 5;
     min = min % 12;
 
-#ifdef DEBUG
-    char buf2[40] = { '\0' };
-    snprintf(buf2, sizeof(buf2)-1, "The adjusted time is %02d:%02d\n", hur, min );
-    DEBUG_LOG(buf2);
-#endif
+    DEBUG_LOG("The adjusted time is %02d:%02d\n", hur, min );
 
 
     // All LEDs should be off
@@ -456,12 +469,7 @@ void write_file(const char *path, const char *data)
 
     if (f)
     {
-        DEBUG_LOG("Writing file:");
-        DEBUG_LOG(path);
-        DEBUG_LOG(" data:");
-        DEBUG_LOG(data);
-        DEBUG_LOG("\n");
-
+        DEBUG_LOG("Writing data '%s' to file '%s'\n", data, path);
         f.println(data);
         f.close();
     }
@@ -539,7 +547,7 @@ void processHTTPRequest(WiFiClient client)
     // Change the time-zone?
     if (request.indexOf("/?tz=") != -1)
     {
-        char *pattern = "/?tz=";
+        const char *pattern = "/?tz=";
         char *s = strstr(request.c_str(), pattern);
 
         if (s != NULL)
