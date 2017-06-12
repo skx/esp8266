@@ -72,6 +72,7 @@
 #define NUM_ROWS 4
 #define NUM_COLS 20
 
+
 //
 // The URL to fetch our tram-data from.
 //
@@ -79,34 +80,15 @@
 //
 #define DEFAULT_API_ENDPOINT "https://steve.fi/Helsinki/Tram-API/api.cgi?id=__ID__"
 
+
 //
 // The default tram stop to monitor.
 //
 #define DEFAULT_TRAM_STOP "1160404"
 
-//
-// Should we enable debugging (via serial-console output) ?
-//
-// Use either `#undef DEBUG`, or `#define DEBUG`.
-//
-#define DEBUG
-
 
 //
-// If we did then DEBUG_LOG will log a string, otherwise
-// it will be ignored as a comment.
-//
-#ifdef DEBUG
-#  define DEBUG_LOG(x) Serial.print(x)
-#else
-#  define DEBUG_LOG(x)
-#endif
-
-
-//
-// Damn this is a nice library!
-//
-//   https://github.com/tzapu/WiFiManager
+// For WiFi setup.
 //
 #include "WiFiManager.h"
 
@@ -134,6 +116,32 @@
 //
 #include "NTPClient.h"
 
+
+//
+// If this is defined we output debug-messages over the serial
+// console.
+//
+#define DEBUG 1
+
+//
+// Record a debug-message, only if `DEBUG` is defined
+//
+void DEBUG_LOG(const char *format, ...)
+{
+#ifdef DEBUG
+    char buff[1024] = {'\0'};
+    va_list arguments;
+    va_start(arguments, format);
+    vsnprintf(buff, sizeof(buff), format, arguments);
+    Serial.print(buff);
+    va_end(arguments);
+#endif
+}
+
+
+//
+// NTP client, and UDP socket it uses.
+//
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP);
 
@@ -184,6 +192,7 @@ char api_end_point[256] = { '\0' };
 //
 char screen[NUM_ROWS][NUM_COLS];
 
+
 //
 // Set the LCD address to 0x27, and define the number
 // of rows & columns.
@@ -201,6 +210,7 @@ bool backlight = true;
 // Setup a new OneButton on pin D8.
 //
 OneButton button(D8, false);
+
 
 //
 // Display mode
@@ -226,7 +236,9 @@ void setup()
     //
     // Enable our serial port.
     //
+#ifdef DEBUG
     Serial.begin(115200);
+#endif
 
     //
     // Enable access to the filesystem.
@@ -325,10 +337,8 @@ void setup()
     // Now we can start our HTTP server
     //
     server.begin();
-    DEBUG_LOG("HTTP-Server started on ");
-    DEBUG_LOG("http://");
-    DEBUG_LOG(WiFi.localIP().toString().c_str());
-    DEBUG_LOG("\n");
+    DEBUG_LOG("HTTP-Server started on http://%s/\n",
+              WiFi.localIP().toString().c_str());
 
     //
     // Allow over the air updates
@@ -680,9 +690,7 @@ void update_tram_times(const char *txt)
             //
             // Show what we're operating upon
             //
-            DEBUG_LOG("LINE: '");
-            DEBUG_LOG(pch);
-            DEBUG_LOG("'\n");
+            DEBUG_LOG("LINE: '%s'\n", pch);
 
             //
             // Look for the first comma, which seperates
@@ -753,23 +761,11 @@ void update_tram_times(const char *txt)
                     if ((hours >= 0) && (mins >= 0))
                     {
                         int then = hours * 60 + mins;
-                        DEBUG_LOG("Hours: ");
-                        DEBUG_LOG(hours);
-                        DEBUG_LOG(" mins: ");
-                        DEBUG_LOG(mins);
-                        DEBUG_LOG(" is ");
-                        DEBUG_LOG(then);
-                        DEBUG_LOG("\n");
+                        DEBUG_LOG("Parsed time is %02d:%0d\n", hours, mins);
 
                         int now  = (timeClient.getHours() * 60) + timeClient.getMinutes();
-                        DEBUG_LOG("Now is ");
-                        DEBUG_LOG(now);
-                        DEBUG_LOG("\n");
-
                         int diff = then - now;
-                        DEBUG_LOG("That's ");
-                        DEBUG_LOG(diff);
-                        DEBUG_LOG(" minutes.\n");
+                        DEBUG_LOG("That's %02d minutes\n", diff);
 
                         snprintf(screen[line], NUM_COLS - 1,
                                  "Line %s in %02d mins", id, diff);
@@ -785,11 +781,7 @@ void update_tram_times(const char *txt)
             }
 
             // Show what we generated
-            DEBUG_LOG("Generated line ");
-            DEBUG_LOG(line);
-            DEBUG_LOG(" '");
-            DEBUG_LOG(screen[line]);
-            DEBUG_LOG("'\n");
+            DEBUG_LOG("Generated line %02d is '%s'\n", line, screen[line]);
 
             //
             // Bump to the next display-line
@@ -825,9 +817,7 @@ void fetch_tram_times()
     //
     // Show what we're going to do.
     //
-    DEBUG_LOG("Fetching ");
-    DEBUG_LOG(url);
-    DEBUG_LOG("\n");
+    DEBUG_LOG("Fetching URL contents: %s\n", url.c_str());
 
     //
     // Fetch the contents of the remote URL.
@@ -853,7 +843,7 @@ void fetch_tram_times()
         }
         else
         {
-            DEBUG_LOG("Empty body from HTTP-fetch");
+            DEBUG_LOG("Empty response from HTTP-fetch\n");
         }
     }
     else
@@ -861,16 +851,12 @@ void fetch_tram_times()
         //
         // Log the status-code
         //
-        DEBUG_LOG("HTTP-Request failed, status-Code was ");
-        DEBUG_LOG(code);
-        DEBUG_LOG("\n");
+        DEBUG_LOG("HTTP-Request failed, status-Code was %03d\n", code);
 
         //
         // Log the status-line
         //
-        DEBUG_LOG("STATUS: ");
-        DEBUG_LOG(client.status());
-        DEBUG_LOG("\n");
+        DEBUG_LOG("Status line read: '%s'\n", client.status());
     }
 }
 
@@ -1050,12 +1036,7 @@ void write_file(const char *path, const char *data)
 
     if (f)
     {
-        DEBUG_LOG("Writing file:");
-        DEBUG_LOG(path);
-        DEBUG_LOG(" data:");
-        DEBUG_LOG(data);
-        DEBUG_LOG("\n");
-
+        DEBUG_LOG("Writing data '%s' to file '%s'\n", data, path);
         f.println(data);
         f.close();
     }
