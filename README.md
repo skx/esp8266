@@ -33,13 +33,6 @@ The [d1-pixels](d1-pixels) project presents a simple pixel-editor which can be u
 The project is documented [on the project homepage](https://steve.fi/Hardware/d1-pixels/).
 
 
-
-## Rick-Roll Access Point
-
-The [mobile-rr](mobile-rr) project is an access-point & captive portal that pretends to offer free WiFi, but instead [rickrolls](https://en.wikipedia.org/wiki/Rickrolling) visitors.
-
-* This is __not my project__, but was very interesting to read and cleanup.
-
 ## Temperature & Humidity Measurement
 
 This [simple project](d1-temp) records the current temperature & humidity value via a DHT22 sensor, and submits to a local MQ bus.
