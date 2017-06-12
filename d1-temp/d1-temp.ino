@@ -28,10 +28,12 @@
 //
 #include "dht.h"
 
+
 //
 // The user-friendly WiFI library?
 //
-# include "WiFiManager.h"
+#include "WiFiManager.h"
+
 
 //
 // Include the MQQ library and our info-dump class
@@ -45,21 +47,25 @@
 //
 #define DHTPIN D4
 
+
 //
 // Address of our MQ queue
 //
 char mqtt_server[64] = { '\0' };
+
 
 //
 // The default value if nothing is configured.
 //
 #define DEFAULT_MQ_SERVER  "10.0.0.10"
 
+
 //
 // Create an MQ client.
 //
 WiFiClient espClient;
 PubSubClient client(espClient);
+
 
 //
 // Helper to dump our details.
@@ -73,7 +79,6 @@ info board_info;
 //
 static double last_humidity    = -1;
 static double last_temperature = -1;
-
 
 
 //
@@ -93,22 +98,25 @@ WiFiServer server(80);
 
 
 //
-// Should we enable debugging (via serial-console output) ?
+// If this is defined we output debug-messages over the serial
+// console.
 //
-// Use either `#undef DEBUG`, or `#define DEBUG`.
-//
-#define DEBUG
-
+#define DEBUG 1
 
 //
-// If we did then DEBUG_LOG will log a string, otherwise
-// it will be ignored as a comment.
+// Record a debug-message, only if `DEBUG` is defined
 //
+void DEBUG_LOG(const char *format, ...)
+{
 #ifdef DEBUG
-#  define DEBUG_LOG(x) Serial.print(x)
-#else
-#  define DEBUG_LOG(x)
+    char buff[1024] = {'\0'};
+    va_list arguments;
+    va_start(arguments, format);
+    vsnprintf(buff, sizeof(buff), format, arguments);
+    Serial.print(buff);
+    va_end(arguments);
 #endif
+}
 
 
 //
@@ -130,11 +138,8 @@ void measureDHT()
     if (chk == DHTLIB_OK)
     {
         // DISPLAY DATA
-        Serial.print("Humidity:");
-        Serial.print(DHT.humidity, 1);
-        Serial.print(" Temperature:");
-        Serial.print(DHT.temperature, 1);
-        Serial.println();
+        DEBUG_LOG("Humidity: %02d - Temperature %02d\n",
+                  DHT.humidity, DHT.temperature);
 
         // Format it.
         String payload = "{\"temperature\":" + String(DHT.temperature) +
@@ -186,9 +191,7 @@ void measureDHT()
             break;
 
         default:
-            DEBUG_LOG("Unknown error: ");
-            DEBUG_LOG(chk);
-            DEBUG_LOG("\n");
+            DEBUG_LOG("Unknown error - %02d\n", chk);
             break;
         }
 
@@ -206,7 +209,9 @@ void setup()
     //
     // Setup the serial-console.
     //
+#ifdef DEBUG
     Serial.begin(115200);
+#endif
 
     //
     // Enable access to the filesystem.
@@ -220,13 +225,11 @@ void setup()
     id += ".";
     id += board_info.mac();
 
+
     //
-    // Show the hostname for debugging
-    // purposes.
+    // Show the ID for debugging purposes.
     //
-    DEBUG_LOG("\nDevice: ");
-    DEBUG_LOG(id);
-    DEBUG_LOG("\n");
+    DEBUG_LOG("\nDevice ID: %s\n", id.c_str());
 
 
     //
@@ -242,9 +245,8 @@ void setup()
     //
     // Now we're connected show the local IP address.
     //
-    DEBUG_LOG("\nWiFi connected ");
-    DEBUG_LOG(WiFi.localIP());
-    DEBUG_LOG("\n");
+    DEBUG_LOG("\nWiFi Connected with IP %s\n",
+              WiFi.localIP().toString().c_str());
 
     //
     // Allow over the air updates
@@ -274,10 +276,6 @@ void setup()
     });
     ArduinoOTA.onError([](ota_error_t error)
     {
-        DEBUG_LOG("Error - ");
-        DEBUG_LOG(error);
-        DEBUG_LOG(" ");
-
         if (error == OTA_AUTH_ERROR)
             DEBUG_LOG("Auth Failed\n");
         else if (error == OTA_BEGIN_ERROR)
@@ -299,10 +297,8 @@ void setup()
     // Start our HTTP server
     //
     server.begin();
-    DEBUG_LOG("HTTP-Server started on ");
-    DEBUG_LOG("http://");
-    DEBUG_LOG(WiFi.localIP().toString().c_str());
-    DEBUG_LOG("\n");
+    DEBUG_LOG("HTTP-Server started on http://%s/\n",
+              WiFi.localIP().toString().c_str());
 
     //
     // Load the MQ address, if we can.
@@ -360,7 +356,6 @@ void loop()
     // If we've not updated, or it was >60 seconds, then update
     if ((last_read == 0) || (abs(now - last_read) > 60 * 1000))
     {
-
         measureDHT();
         last_read = now;
     }
@@ -412,7 +407,7 @@ void reconnect()
     // Loop until we're reconnected
     while (!client.connected())
     {
-        Serial.print("Attempting MQTT connection...");
+        DEBUG_LOG("Attempting to connect to MQ ..");
 
         String id = PROJECT_NAME;
         id += board_info.mac();
@@ -421,7 +416,7 @@ void reconnect()
         if (client.connect(id.c_str()))
         {
             // We've connected
-            Serial.println("connected");
+            DEBUG_LOG("\tconnected\n");
 
             //
             // Dump all our local details to the meta-topic
@@ -435,10 +430,8 @@ void reconnect()
         }
         else
         {
-            Serial.print("failed, rc=");
-            Serial.print(client.state());
-            Serial.println(" try again in 5 seconds");
-            // Wait 5 seconds before retrying
+            DEBUG_LOG("\tfailed, rc=%02d, will retry in 5 seconds.\n",
+                      client.state());
             delay(5000);
         }
     }
@@ -615,11 +608,7 @@ void write_file(const char *path, const char *data)
 
     if (f)
     {
-        DEBUG_LOG("Writing file:");
-        DEBUG_LOG(path);
-        DEBUG_LOG(" data:");
-        DEBUG_LOG(data);
-        DEBUG_LOG("\n");
+        DEBUG_LOG("Writing data '%s' to file '%s'\n", data, path);
 
         f.println(data);
         f.close();
