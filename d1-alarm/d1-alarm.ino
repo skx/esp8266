@@ -42,30 +42,8 @@
 #define PROJECT_NAME "D1-MQ-ALARM"
 
 
-
 //
-// Should we enable debugging (via serial-console output) ?
-//
-// Use either `#undef DEBUG`, or `#define DEBUG`.
-//
-#define DEBUG
-
-
-//
-// If we did then DEBUG_LOG will log a string, otherwise
-// it will be ignored as a comment.
-//
-#ifdef DEBUG
-#  define DEBUG_LOG(x) Serial.print(x)
-#else
-#  define DEBUG_LOG(x)
-#endif
-
-
-//
-// Damn this is a nice library!
-//
-//   https://github.com/tzapu/WiFiManager
+// WiFi setup.
 //
 #include "WiFiManager.h"
 
@@ -91,6 +69,28 @@
 
 
 //
+// If this is defined we output debug-messages over the serial
+// console.
+//
+#define DEBUG 1
+
+//
+// Record a debug-message, only if `DEBUG` is defined
+//
+void DEBUG_LOG(const char *format, ...)
+{
+#ifdef DEBUG
+    char buff[1024] = {'\0'};
+    va_list arguments;
+    va_start(arguments, format);
+    vsnprintf(buff, sizeof(buff), format, arguments);
+    Serial.print(buff);
+    va_end(arguments);
+#endif
+}
+
+
+//
 // The HTTP-server we present runs on port 80.
 //
 WiFiServer server(80);
@@ -100,6 +100,7 @@ WiFiServer server(80);
 // Address of our MQ queue
 //
 char mqtt_server[64] = { '\0' };
+
 
 //
 // The default server-address if nothing is configured.
@@ -138,7 +139,9 @@ void setup()
     //
     // Enable our serial port.
     //
+#ifdef DEBUG
     Serial.begin(115200);
+#endif
 
     //
     // Enable access to the filesystem.
@@ -155,9 +158,7 @@ void setup()
     //
     // Now we're connected show the local IP address.
     //
-    DEBUG_LOG("WiFi Connected : ");
-    DEBUG_LOG(WiFi.localIP().toString().c_str());
-    DEBUG_LOG("\n");
+    DEBUG_LOG("WiFi Connected as %s\n",WiFi.localIP().toString().c_str());
 
     //
     // Allow over the air updates
@@ -208,10 +209,8 @@ void setup()
     // Start our HTTP server
     //
     server.begin();
-    DEBUG_LOG("HTTP-Server started on ");
-    DEBUG_LOG("http://");
-    DEBUG_LOG(WiFi.localIP().toString().c_str());
-    DEBUG_LOG("\n");
+    DEBUG_LOG("HTTP-Server started on http://%s/\n",
+              WiFi.localIP().toString().c_str());
 
     //
     // Our switch is wired between D8 & D0.
@@ -425,10 +424,8 @@ void reconnect()
         }
         else
         {
-            DEBUG_LOG("failed, rc=");
-            DEBUG_LOG(client.state());
-            DEBUG_LOG(" try again in 5 seconds\n");
-            // Wait 5 seconds before retrying
+            DEBUG_LOG("failed, rc=%d, will try again in 5 seconds\n",
+                      client.state());
             delay(5000);
         }
     }
@@ -576,11 +573,7 @@ void write_file(const char *path, const char *data)
 
     if (f)
     {
-        DEBUG_LOG("Writing file:");
-        DEBUG_LOG(path);
-        DEBUG_LOG(" data:");
-        DEBUG_LOG(data);
-        DEBUG_LOG("\n");
+        DEBUG_LOG("Writing data '%s' to file '%s'\n", data, path);
 
         f.println(data);
         f.close();
