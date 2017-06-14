@@ -30,9 +30,17 @@
 //
 #include "NTPClient.h"
 
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP);
 
+//
+// WiFi setup.
+//
+#include "WiFiManager.h"
+
+
+//
+// Debug messages over the serial console.
+//
+#include "debug.h"
 
 
 //
@@ -50,43 +58,12 @@ NTPClient timeClient(ntpUDP);
 //
 #define TIME_ZONE (+2)
 
-//
-// Should we enable debugging (via serial-console output) ?
-//
-// Use either `#undef DEBUG`, or `#define DEBUG`.
-//
-#define DEBUG
-
 
 //
-// If we did then DEBUG_LOG will log a string, otherwise
-// it will be ignored as a comment.
+// NTP client, and UDP socket it uses.
 //
-#ifdef DEBUG
-#  define DEBUG_LOG(x) Serial.print(x)
-#else
-#  define DEBUG_LOG(x)
-#endif
-
-
-
-
-//
-// Use the user-friendly WiFI library?
-//
-// If you don't want to use this then comment out the following line:
-//
-#define WIFI_MANAGER
-
-//
-//  Otherwise define a SSID / Password
-//
-#ifdef WIFI_MANAGER
-# include "WiFiManager.h"
-#else
-# define WIFI_SSID "SCOTLAND"
-# define WIFI_PASS "highlander1"
-#endif
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP);
 
 
 //
@@ -124,42 +101,9 @@ void setup()
     //
     // Handle WiFi setup
     //
-#ifdef WIFI_MANAGER
-
     WiFiManager wifiManager;
     wifiManager.autoConnect(PROJECT_NAME);
 
-#else
-    //
-    // Connect to the WiFi network, and set a sane
-    // hostname so we can ping it by name.
-    //
-    WiFi.mode(WIFI_STA);
-    WiFi.hostname(PROJECT_NAME);
-    WiFi.begin(WIFI_SSID, WIFI_PASS);
-
-    //
-    // Show that we're connecting to the WiFi.
-    //
-    DEBUG_LOG("WiFi connecting: ");
-
-    //
-    // Try to connect to WiFi, constantly.
-    //
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        DEBUG_LOG(".");
-        delay(500);
-    }
-
-    //
-    // Now we're connected show the local IP address.
-    //
-    DEBUG_LOG("\nWiFi connected ");
-    DEBUG_LOG(WiFi.localIP());
-    DEBUG_LOG("\n");
-
-#endif
 
     //
     // Ensure our NTP-client is ready.
@@ -202,8 +146,6 @@ void setup()
     ArduinoOTA.onError([](ota_error_t error)
     {
         DEBUG_LOG("Error - ");
-        DEBUG_LOG(error);
-        DEBUG_LOG(" ");
 
         if (error == OTA_AUTH_ERROR)
             DEBUG_LOG("Auth Failed\n");

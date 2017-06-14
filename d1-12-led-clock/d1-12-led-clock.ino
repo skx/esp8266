@@ -1,18 +1,3 @@
-
-
-//
-// The name of this project.
-//
-// Used for the Access-Point name, and for OTA-identification.
-//
-#define PROJECT_NAME "12-LED-CLOCK"
-
-//
-// Include the fast-LED library
-//
-#include "FastLED.h"
-#define NUM_LEDS 12
-
 //
 // WiFi
 //
@@ -26,9 +11,7 @@
 
 
 //
-// Damn this is a nice library!
-//
-//   https://github.com/tzapu/WiFiManager
+// WiFi setup.
 //
 #include "WiFiManager.h"
 
@@ -39,39 +22,39 @@
 #include <ESP8266WiFi.h>
 #include <ArduinoOTA.h>
 
+
 //
 // For dealing with NTP & the clock.
 //
 #include "NTPClient.h"
 
 
+//
+// Include the fast-LED library
+//
+#include "FastLED.h"
+
+//
+// Debug messages over the serial console.
+//
+#include "debug.h"
+
+
+//
+// The name of this project.
+//
+// Used for the Access-Point name, and for OTA-identification.
+//
+#define PROJECT_NAME "12-LED-CLOCK"
+
+
 
 //
 // Define the array of leds
 //
+#define NUM_LEDS 12
 CRGB leds[NUM_LEDS];
 
-
-//
-// If this is defined we output debug-messages over the serial
-// console.
-//
-#define DEBUG 1
-
-//
-// Record a debug-message, only if `DEBUG` is defined
-//
-void DEBUG_LOG(const char *format, ...)
-{
-#ifdef DEBUG
-    char buff[1024] = {'\0'};
-    va_list arguments;
-    va_start(arguments, format);
-    vsnprintf(buff, sizeof(buff), format, arguments);
-    Serial.print(buff);
-    va_end(arguments);
-#endif
-}
 
 
 //

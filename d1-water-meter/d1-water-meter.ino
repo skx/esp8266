@@ -8,6 +8,12 @@
 #include "WiFiManager.h"
 
 //
+// Debug messages over the serial console.
+//
+#include "debug.h"
+
+
+//
 // Include the MQQ library, and define our server.
 //
 #include "PubSubClient.h"
@@ -29,23 +35,6 @@ info board_info;
 #define PROJECT_NAME "D1-WATER-METER"
 
 
-//
-// Should we enable debugging (via serial-console output) ?
-//
-// Use either `#undef DEBUG`, or `#define DEBUG`.
-//
-#define DEBUG
-
-
-//
-// If we did then DEBUG_LOG will log a string, otherwise
-// it will be ignored as a comment.
-//
-#ifdef DEBUG
-#  define DEBUG_LOG(x) Serial.print(x)
-#else
-#  define DEBUG_LOG(x)
-#endif
 
 
 
@@ -310,4 +299,3 @@ void reconnect()
     }
 
 }
-

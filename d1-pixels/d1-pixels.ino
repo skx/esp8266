@@ -15,6 +15,10 @@
 #include "Adafruit_GFX.h"
 #include "Adafruit_LEDBackpack.h"
 
+//
+// Debug messages over the serial console.
+//
+#include "debug.h"
 
 
 //
@@ -28,49 +32,12 @@
 
 
 
-//
-// Use the user-friendly WiFI library?
-//
-// If you don't want to use this then comment out the following line:
-//
-#define WIFI_MANAGER
 
 
 //
-//  Otherwise define a SSID / Password
+// WiFi setup.
 //
-#ifndef WIFI_MANAGER
-# define WIFI_SSID "SCOTLAND"
-# define WIFI_PASS "highlander1"
-#endif
-
-//
-// Should we enable debugging (via serial-console output) ?
-//
-// Use either `#undef DEBUG`, or `#define DEBUG`.
-//
-#define DEBUG
-
-
-//
-// If we did then DEBUG_LOG will log a string, otherwise
-// it will be ignored as a comment.
-//
-#ifdef DEBUG
-#  define DEBUG_LOG(x) Serial.print(x)
-#else
-#  define DEBUG_LOG(x)
-#endif
-
-
-//
-// Damn this is a nice library!
-//
-//   https://github.com/tzapu/WiFiManager
-//
-#ifdef WIFI_MANAGER
-# include "WiFiManager.h"
-#endif
+#include "WiFiManager.h"
 
 
 
@@ -121,11 +88,7 @@ void light_leds(char *txt)
 
     while ((pch != NULL) && (line < 8))
     {
-        DEBUG_LOG(" Line ");
-        DEBUG_LOG(line);
-        DEBUG_LOG(" is ");
-        DEBUG_LOG(pch);
-        DEBUG_LOG("\n");
+        DEBUG_LOG("  Line %d is '%s'\n", line, pch);
 
         pattern[line] = atoi(pch);
 
@@ -157,34 +120,15 @@ void setup()
     //
     SPIFFS.begin();
 
-#ifdef WIFI_MANAGER
-
     WiFiManager wifiManager;
     wifiManager.autoConnect(PROJECT_NAME);
 
-#else
     //
-    // Connect to the WiFi network, and set a sane
-    // hostname so we can ping it by name.
+    // Now we're connected show the local IP address.
     //
-    WiFi.mode(WIFI_STA);
-    WiFi.hostname(PROJECT_NAME);
-    WiFi.begin(WIFI_SSID, WIFI_PASS);
+    DEBUG_LOG("\nWiFi Connected with IP %s\n",
+              WiFi.localIP().toString().c_str());
 
-    //
-    // Try to connect to WiFi, constantly.
-    //
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        DEBUG_LOG(".");
-        delay(500);
-    }
-
-#endif
-
-    DEBUG_LOG("WiFi connected  ");
-    DEBUG_LOG(WiFi.localIP());
-    DEBUG_LOG("\n");
 
     //
     // Now we can start our HTTP server
@@ -266,7 +210,6 @@ void loop()
     // Handle any pending over the air updates.
     //
     ArduinoOTA.handle();
-
 
     //
     // Check if a client has connected to our HTTP-server.

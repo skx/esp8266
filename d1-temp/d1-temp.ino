@@ -30,7 +30,7 @@
 
 
 //
-// The user-friendly WiFI library?
+// WiFi setup.
 //
 #include "WiFiManager.h"
 
@@ -40,6 +40,12 @@
 //
 #include "PubSubClient.h"
 #include "info.h"
+
+
+//
+// Debug messages over the serial console.
+//
+#include "debug.h"
 
 
 //
@@ -96,27 +102,6 @@ WiFiServer server(80);
 //
 #define PROJECT_NAME "D1-TEMP"
 
-
-//
-// If this is defined we output debug-messages over the serial
-// console.
-//
-#define DEBUG 1
-
-//
-// Record a debug-message, only if `DEBUG` is defined
-//
-void DEBUG_LOG(const char *format, ...)
-{
-#ifdef DEBUG
-    char buff[1024] = {'\0'};
-    va_list arguments;
-    va_start(arguments, format);
-    vsnprintf(buff, sizeof(buff), format, arguments);
-    Serial.print(buff);
-    va_end(arguments);
-#endif
-}
 
 
 //
