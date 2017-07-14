@@ -87,9 +87,8 @@ void setup() //
     //
     // Now we're connected show the local IP address.
     //
-    DEBUG_LOG("\nWiFi connected ");
-    DEBUG_LOG(WiFi.localIP());
-    DEBUG_LOG("\n");
+    DEBUG_LOG("HTTP-Server started on http://%s/\n",
+              WiFi.localIP().toString().c_str());
 
     // Count rotations via D2
     pinMode(D2, INPUT);
@@ -123,10 +122,6 @@ void setup() //
     });
     ArduinoOTA.onError([](ota_error_t error)
     {
-        DEBUG_LOG("Error - ");
-        DEBUG_LOG(error);
-        DEBUG_LOG(" ");
-
         if (error == OTA_AUTH_ERROR)
             DEBUG_LOG("Auth Failed\n");
         else if (error == OTA_BEGIN_ERROR)
@@ -223,8 +218,7 @@ void measure_water()
     //
     // Log it
     //
-    DEBUG_LOG(payload.c_str());
-    DEBUG_LOG("\n");
+    DEBUG_LOG("Sending data to MQ: %s\n", payload.c_str());
 
     //
     // Publish it to the bus
