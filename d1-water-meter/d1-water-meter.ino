@@ -282,7 +282,7 @@ void reconnect()
         }
         else
         {
-            DEBUG_LOG(" failed, rc=%d - will retry in five seconds\n", (client.state());
+            DEBUG_LOG(" failed, rc=%d - will retry in five seconds\n", (client.state()));
 
             // Wait 5 seconds before retrying
             delay(5000);
