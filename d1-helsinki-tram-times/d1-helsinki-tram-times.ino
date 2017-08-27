@@ -134,8 +134,17 @@
 //
 #include "url_fetcher.h"
 
-
-
+String read_file(const char *path);
+void draw_line(int row, const char *txt);
+void access_point_callback(WiFiManager* myWiFiManager);
+void on_before_ntp();
+void on_after_ntp();
+void fetch_tram_times();
+void handlePendingButtons();
+void on_short_click();
+void on_long_click();
+void on_double_click();
+void processHTTPRequest(WiFiClient client);
 
 //
 // NTP client, and UDP socket it uses.
@@ -196,14 +205,6 @@ bool backlight = true;
 // Setup a new OneButton on pin D8.
 //
 OneButton button(D8, false);
-
-
-//
-// Display mode
-//
-typedef enum {ABSOLUTE, RELATIVE} time_mode;
-time_mode g_time_mode = ABSOLUTE;
-
 
 
 //
@@ -604,19 +605,33 @@ void handlePendingButtons()
     //
     if (double_click)
     {
-        if (g_time_mode == ABSOLUTE)
-            g_time_mode = RELATIVE;
-        else if ( g_time_mode == RELATIVE )
-            g_time_mode = ABSOLUTE;
-
-        //
-        // Trigger an update to make the change
-        // "immediate".
-        //
-        fetch_tram_times();
-
         double_click = false;
+        DEBUG_LOG("Double Click\n");
 
+        char line[NUM_COLS + 1];
+
+        // Line 0 - About
+        draw_line(0, "Steve Kemp - Trams");
+
+        // Line 1 - IP
+        snprintf(line, NUM_COLS, "IP: %s", WiFi.localIP().toString().c_str());
+        draw_line(1, line);
+
+        // Line 2 - Timezone
+        if (time_zone_offset > 0)
+            snprintf(line, NUM_COLS, "Timezone: +%d", time_zone_offset);
+        else if (time_zone_offset < 0)
+            snprintf(line, NUM_COLS, "Timezone: -%d", time_zone_offset);
+        else
+            snprintf(line, NUM_COLS, "Timezone: %d", time_zone_offset);
+
+        draw_line(2, line);
+
+        // Line 3 - Tram ID
+        snprintf(line, NUM_COLS, "Tram ID : %s", tram_stop);
+        draw_line(3, line);
+
+        delay(2500);
 
     }
 
@@ -739,30 +754,7 @@ void update_tram_times(const char *txt)
 
                 }
 
-                //
-                // Now we format the line of the screen with the data.
-                //
-                if (g_time_mode == RELATIVE)
-                {
-                    if ((hours >= 0) && (mins >= 0))
-                    {
-                        int then = hours * 60 + mins;
-                        DEBUG_LOG("Parsed time is %02d:%0d\n", hours, mins);
-
-                        int now  = (timeClient.getHours() * 60) + timeClient.getMinutes();
-                        int diff = then - now;
-                        DEBUG_LOG("That's %02d minutes\n", diff);
-
-                        snprintf(screen[line], NUM_COLS - 1,
-                                 "Line %s in %02d mins", id, diff);
-                    }
-                }
-
-                if (g_time_mode == ABSOLUTE)
-                {
-                    snprintf(screen[line], NUM_COLS - 1,
-                             "  Line %s @ %s", id, tm);
-                }
+                snprintf(screen[line], NUM_COLS - 1, "  Line %s @ %s", id, tm);
 
             }
 
@@ -1168,7 +1160,7 @@ void processHTTPRequest(WiFiClient client)
     // Change the tram-stop?
     if (request.indexOf("/?stop=") != -1)
     {
-        char *pattern = "/?stop=";
+        const char *pattern = "/?stop=";
         char *s = strstr(request.c_str(), pattern);
 
         if (s != NULL)
@@ -1204,7 +1196,7 @@ void processHTTPRequest(WiFiClient client)
     // Change the API end-point
     if (request.indexOf("/?api=") != -1)
     {
-        char *pattern = "/?api=";
+        const char *pattern = "/?api=";
         char *s = strstr(request.c_str(), pattern);
 
         if (s != NULL)
@@ -1241,7 +1233,7 @@ void processHTTPRequest(WiFiClient client)
     // Change the time-zone?
     if (request.indexOf("/?tz=") != -1)
     {
-        char *pattern = "/?tz=";
+        const char *pattern = "/?tz=";
         char *s = strstr(request.c_str(), pattern);
 
         if (s != NULL)
