@@ -516,6 +516,35 @@ void loop()
 
 
     //
+    // We'll disable the backlight overnight too.
+    //
+    // We test for this every hour, on the hour.
+    //
+    if ((min == 0) && (sec == 0))
+    {
+        //
+        // Six AM goes on
+        //
+        if (hour == 6)
+        {
+            if (! backlight)
+            {
+                backlight = true;
+                lcd.setBacklight(backlight);
+            }
+        }
+
+        if (hour == 22)
+        {
+            if (backlight)
+            {
+                backlight = false;
+                lcd.setBacklight(backlight);
+            }
+        }
+    }
+
+    //
     // Now draw all the rows - correctly doing this
     // after the previous step might have updated
     // the display.
@@ -605,6 +634,7 @@ void handlePendingButtons()
     //
     if (double_click)
     {
+
         double_click = false;
         DEBUG_LOG("Double Click\n");
 
