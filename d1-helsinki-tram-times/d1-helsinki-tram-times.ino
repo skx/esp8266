@@ -130,9 +130,10 @@
 
 
 //
-// For fetching URLS
+// For fetching URLS & handling URL-parameters
 //
 #include "url_fetcher.h"
+#include "url_parameters.h"
 
 String read_file(const char *path);
 void draw_line(int row, const char *txt);
@@ -1115,48 +1116,6 @@ void draw_line(int row, const char *txt)
 }
 
 //
-// This is a horrid function.
-//
-void urldecode(const char *src, char *dst)
-{
-    char a, b;
-
-    while (*src)
-    {
-        if ((*src == '%') &&
-                ((a = src[1]) && (b = src[2])) &&
-                (isxdigit(a) && isxdigit(b)))
-        {
-            if (a >= 'a')
-                a -= 'a' - 'A';
-
-            if (a >= 'A')
-                a -= ('A' - 10);
-            else
-                a -= '0';
-
-            if (b >= 'a')
-                b -= 'a' - 'A';
-
-            if (b >= 'A')
-                b -= ('A' - 10);
-            else
-                b -= '0';
-
-            *dst++ = 16 * a + b;
-            src += 3;
-        }
-        else
-        {
-            *dst++ = *src++;
-        }
-    }
-
-    *dst++ = '\0';
-}
-
-
-//
 // Process an incoming HTTP-request.
 //
 void processHTTPRequest(WiFiClient client)
@@ -1191,73 +1150,42 @@ void processHTTPRequest(WiFiClient client)
         return;
     }
 
-    // Change the tram-stop?
-    if (request.indexOf("/?stop=") != -1)
+    //
+    // Find the URL we were requested
+    //
+    // We'll have something like "GET XXXXX HTTP/XX"
+    // so we split at the space and send the "XXX HTTP/XX" value
+    //
+    URL url( request.substring( request.indexOf( " " )  + 1).c_str() );
+
+    char *stop = url.param( "stop" );
+    if ( stop != NULL )
     {
-        const char *pattern = "/?stop=";
-        char *s = strstr(request.c_str(), pattern);
+        // Update the tram ID
+        strcpy(tram_stop, stop );
 
-        if (s != NULL)
-        {
+        // Record the data in a file.
+        write_file("/tram.stop", tram_stop);
 
-            // Empty the tram ID
-            memset(tram_stop, '\0', sizeof(tram_stop));
-
-            // Skip past the pattern.
-            s += strlen(pattern);
-
-            // Add characters until we come to a terminating character.
-            for (int i = 0; i < strlen(s); i++)
-            {
-                if ((s[i] != ' ') && (s[i] != '&'))
-                    tram_stop[strlen(tram_stop)] = s[i];
-                else
-                    break;
-            }
-
-            // Record the data in a file.
-            write_file("/tram.stop", tram_stop);
-
-            // So we've changed the tram ID we should refresh the date.
-            fetch_tram_times();
-        }
+        // So we've changed the tram ID we should refresh the date.
+        fetch_tram_times();
 
         // Redirect to the server-root
         redirectIndex(client);
         return;
     }
 
-    // Change the API end-point
-    if (request.indexOf("/?api=") != -1)
+    char *api = url.param( "api" );
+    if (api != NULL )
     {
-        const char *pattern = "/?api=";
-        char *s = strstr(request.c_str(), pattern);
+        // Update the API end-point
+        strcpy( api_end_point, api );
 
-        if (s != NULL)
-        {
-            char tmp[256] = { '\0' };
+        // Record the data in a file.
+        write_file("/tram.api", api_end_point);
 
-            // Skip past the pattern.
-            s += strlen(pattern);
-
-            // Add characters until we come to a terminating character.
-            for (int i = 0; i < strlen(s); i++)
-            {
-                if ((s[i] != ' ') && (s[i] != '&'))
-                    tmp[strlen(tmp)] = s[i];
-                else
-                    break;
-            }
-
-            // URL decode..
-            urldecode(tmp, api_end_point);
-
-            // Record the data in a file.
-            write_file("/tram.api", api_end_point);
-
-            // So we've changed the tram ID we should refresh the date.
-            fetch_tram_times();
-        }
+        // So we've changed the tram ID we should refresh the date.
+        fetch_tram_times();
 
         // Redirect to the server-root
         redirectIndex(client);
@@ -1265,39 +1193,18 @@ void processHTTPRequest(WiFiClient client)
     }
 
     // Change the time-zone?
-    if (request.indexOf("/?tz=") != -1)
+    char *tz = url.param( "tz" );
+    if (tz != NULL )
     {
-        const char *pattern = "/?tz=";
-        char *s = strstr(request.c_str(), pattern);
+        // Record the data into a file.
+        write_file("/time.zone", tz);
 
-        if (s != NULL)
-        {
-            // Temporary holder for the timezone - as a string.
-            char tmp[10] = { '\0' };
+        // Change the timezone now
+        time_zone_offset = atoi(tz);
 
-            // Skip past the pattern.
-            s += strlen(pattern);
-
-            // Add characters until we come to a terminating character.
-            for (int i = 0; i < strlen(s); i++)
-            {
-                if ((s[i] != ' ') && (s[i] != '&'))
-                    tmp[strlen(tmp)] = s[i];
-                else
-                    break;
-            }
-
-            // Record the data into a file.
-            write_file("/time.zone", tmp);
-
-            // Change the timezone now
-            time_zone_offset = atoi(tmp);
-
-            // Update the offset.
-            timeClient.setTimeOffset(time_zone_offset * (60 * 60));
-            timeClient.forceUpdate();
-
-        }
+        // Update the offset.
+        timeClient.setTimeOffset(time_zone_offset * (60 * 60));
+        timeClient.forceUpdate();
 
         // Redirect to the server-root
         redirectIndex(client);
