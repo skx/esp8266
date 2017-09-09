@@ -203,6 +203,11 @@ void loop()
     timeClient.update();
 
     //
+    // Handle any pending over the air updates.
+    //
+    ArduinoOTA.handle();
+
+    //
     // Get the current hour/min
     //
     int cur_hour = timeClient.getHours();
