@@ -293,7 +293,8 @@ void loop()
     //
     // Handle queue messages.
     //
-    client.loop();
+    if (client.connected())
+        client.loop();
 
     //
     // Handle any pending clicks here.
@@ -307,10 +308,10 @@ void loop()
     //
     // (This allows changing MQ address.)
     //
-    WiFiClient client = server.available();
+    WiFiClient wclient = server.available();
 
-    if (client)
-        processHTTPRequest(client);
+    if (wclient)
+        processHTTPRequest(wclient);
 
 
 }
@@ -386,38 +387,55 @@ void callback(char* topic, byte* payload, unsigned int length)
 //
 void reconnect()
 {
-    // Loop until we're reconnected
-    while (!client.connected())
+    //
+    // Keep track of connection-attempts.
+    //
+    // If there are too many failures we'll just
+    // abort.
+    //
+    static int count = 0;
+
+    if (count > 5)
+        return;
+
+    //
+    // Bump our attempt-count.
+    //
+    count += 1;
+
+    // Attempt to reconnect
+    DEBUG_LOG("Attempting MQTT connection...");
+
+    String id = PROJECT_NAME;
+    id += board_info.mac();
+
+    // Attempt to connect
+    if (client.connect(id.c_str()))
     {
-        DEBUG_LOG("Attempting MQTT connection...");
+        //
+        // We've connected
+        //
+        DEBUG_LOG("connected\n");
 
-        String id = PROJECT_NAME;
-        id += board_info.mac();
+        //
+        // Dump all our local details to the meta-topic
+        //
+        client.publish("meta", board_info.to_JSON().c_str());
 
-        // Attempt to connect
-        if (client.connect(id.c_str()))
-        {
-            //
-            // We've connected
-            //
-            DEBUG_LOG("connected\n");
+        //
+        // Subscribe to the `meta`-topic.
+        //
+        client.subscribe("meta");
 
-            //
-            // Dump all our local details to the meta-topic
-            //
-            client.publish("meta", board_info.to_JSON().c_str());
-
-            //
-            // Subscribe to the `meta`-topic.
-            //
-            client.subscribe("meta");
-        }
-        else
-        {
-            DEBUG_LOG("failed, rc=%d, will try again in 5 seconds\n",
-                      client.state());
-            delay(5000);
-        }
+        //
+        // We can stop counting failures now.
+        //
+        count = 0;
+    }
+    else
+    {
+        DEBUG_LOG("failed, rc=%d, delaying for 5 seconds\n", client.state());
+        delay(5000);
     }
 }
 
