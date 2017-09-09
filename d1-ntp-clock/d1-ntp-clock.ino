@@ -16,19 +16,14 @@
 #include <ArduinoOTA.h>
 
 //
-// NTP uses UDP.
+// For dealing with NTP & the clock.
 //
-#include <WiFiUdp.h>
+#include "NTPClient.h"
 
 //
 // The display-interface
 //
 #include "TM1637.h"
-
-//
-// Time & NTP
-//
-#include "NTPClient.h"
 
 
 //
@@ -74,6 +69,21 @@ NTPClient timeClient(ntpUDP);
 TM1637 tm1637(CLK, DIO);
 
 
+//
+// Called just before the date/time is updated via NTP
+//
+void on_before_ntp()
+{
+    DEBUG_LOG("Updating date & time");
+}
+
+//
+// Called just after the date/time is updated via NTP
+//
+void on_after_ntp()
+{
+    DEBUG_LOG("Updated NTP client\n");
+}
 
 //
 // This function is called when the device is powered-on.
@@ -110,6 +120,11 @@ void setup()
     //
     timeClient.begin();
 
+    //
+    // Configure the callbacks.
+    //
+    timeClient.on_before_update(on_before_ntp);
+    timeClient.on_after_update(on_after_ntp);
 
     //
     // Setup the timezone & update-interval.
@@ -183,6 +198,11 @@ void loop()
     static bool flash = true;
 
     //
+    // Resync the clock?
+    //
+    timeClient.update();
+
+    //
     // Get the current hour/min
     //
     int cur_hour = timeClient.getHours();
@@ -217,7 +237,7 @@ void loop()
     // when the hour/min changed.
     //
     // However note that we nuke the cached
-    // value every second - solely so we can
+    // value every half-second - solely so we can
     // blink the ":".
     //
     //  Sigh
@@ -233,9 +253,11 @@ void loop()
         // Apply it.
         tm1637.point(flash);
 
-        // However note that the ":" won't redraw
-        // unless/until you update.  So we'll
-        // force that to happen.
+        //
+        // Note that the ":" won't redraw unless/until you update.
+        // So we'll force that to happen by removing the cached
+        // value here.
+        //
         memset(prev, '\0', sizeof(prev));
         last_read = now;
     }
