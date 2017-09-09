@@ -67,6 +67,12 @@
 
 
 //
+// For handling URL-parameters
+//
+#include "url_parameters.h"
+
+
+//
 // The name of this project.
 //
 // Used for the Access-Point name, and for over the air updates.
@@ -142,7 +148,7 @@ void setup()
     //
     // Now we're connected show the local IP address.
     //
-    DEBUG_LOG("WiFi Connected as %s\n",WiFi.localIP().toString().c_str());
+    DEBUG_LOG("WiFi Connected as %s\n", WiFi.localIP().toString().c_str());
 
     //
     // Allow over the air updates
@@ -420,57 +426,56 @@ void reconnect()
 //
 // Process an incoming HTTP-request.
 //
-void processHTTPRequest(WiFiClient client)
+void processHTTPRequest(WiFiClient httpclient)
 {
     // Wait until the client sends some data
-    while (client.connected() && !client.available())
+    while (httpclient.connected() && !httpclient.available())
         delay(1);
 
+
     // Read the first line of the request
-    String request = client.readStringUntil('\r');
-    client.flush();
+    String request = httpclient.readStringUntil('\r');
+    httpclient.flush();
 
+    //
+    // Find the URL we were requested
+    //
+    // We'll have something like "GET XXXXX HTTP/XX"
+    // so we split at the space and send the "XXX HTTP/XX" value
+    //
+    request = request.substring(request.indexOf(" ")  + 1);
+
+    //
+    // Now we'll want to peel off any HTTP-parameters that might
+    // be present, via our utility-helper.
+    //
+    URL url(request.c_str());
+
+    //
     // Change the MQ server?
-    if (request.indexOf("/?mq=") != -1)
+    //
+    char *mq = url.param("mq");
+
+    if (mq != NULL)
     {
-        char *pattern = "/?mq=";
-        char *s = strstr(request.c_str(), pattern);
+        // Write the data to a file.
+        write_file("/mq.addr", mq);
 
-        if (s != NULL)
-        {
-            // Temporary holder for the value - as a string.
-            char tmp[64] = { '\0' };
+        // Update the queue address
+        memset(mqtt_server, '\0', sizeof(mqtt_server));
+        strncpy(mqtt_server, mq, sizeof(mqtt_server) - 1);
 
-            // Skip past the pattern.
-            s += strlen(pattern);
-
-            // Add characters until we come to a terminating character.
-            for (int i = 0; i < strlen(s); i++)
-            {
-                if ((s[i] != ' ') && (s[i] != '&'))
-                    tmp[strlen(tmp)] = s[i];
-                else
-                    break;
-            }
-
-            // Write the data to a file.
-            write_file("/mq.addr", tmp);
-
-            // Update the queue address
-            memset(mqtt_server, '\0', sizeof(mqtt_server));
-            strncpy(mqtt_server, tmp, sizeof(mqtt_server) - 1);
-
-            // TODO - force reconnect
-        }
+        // Force a reconnection
+        client.disconnect();
 
         // Redirect to the server-root
-        redirectIndex(client);
+        redirectIndex(httpclient);
         return;
     }
 
 
     // Return a simple response
-    serveHTML(client);
+    serveHTML(httpclient);
 
 }
 
