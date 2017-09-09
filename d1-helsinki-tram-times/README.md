@@ -54,7 +54,7 @@ This will allow you to use this project with zero changes to the code!
 If you wire a button between D0 & D8 you gain additional functionality:
 
 * Short-Press the button to toggle the backlight.
-* Double-click to toggle the display mode.
+* Double-click to show a brief information-page.
 * Long-Press the button to resync the date/time __and__ the tram-data.
 
 The info-page looks like this:
