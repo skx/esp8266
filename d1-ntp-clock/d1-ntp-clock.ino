@@ -51,7 +51,7 @@
 //
 // The timezone - comment out to stay at GMT.
 //
-#define TIME_ZONE (+2)
+#define TIME_ZONE (+3)
 
 
 //
