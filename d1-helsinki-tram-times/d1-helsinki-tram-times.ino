@@ -1156,13 +1156,14 @@ void processHTTPRequest(WiFiClient client)
     // We'll have something like "GET XXXXX HTTP/XX"
     // so we split at the space and send the "XXX HTTP/XX" value
     //
-    URL url( request.substring( request.indexOf( " " )  + 1).c_str() );
+    URL url(request.substring(request.indexOf(" ")  + 1).c_str());
 
-    char *stop = url.param( "stop" );
-    if ( stop != NULL )
+    char *stop = url.param("stop");
+
+    if (stop != NULL)
     {
         // Update the tram ID
-        strcpy(tram_stop, stop );
+        strcpy(tram_stop, stop);
 
         // Record the data in a file.
         write_file("/tram.stop", tram_stop);
@@ -1171,7 +1172,8 @@ void processHTTPRequest(WiFiClient client)
         //
         // We force this to happen by updating our screen
         //
-        for( int i = 1; i  < NUM_ROWS; i++ ) {
+        for (int i = 1; i  < NUM_ROWS; i++)
+        {
             screen[i][0] = '\0';
         }
 
@@ -1181,11 +1183,12 @@ void processHTTPRequest(WiFiClient client)
         return;
     }
 
-    char *api = url.param( "api" );
-    if (api != NULL )
+    char *api = url.param("api");
+
+    if (api != NULL)
     {
         // Update the API end-point
-        strcpy( api_end_point, api );
+        strcpy(api_end_point, api);
 
         // Record the data in a file.
         write_file("/tram.api", api_end_point);
@@ -1199,8 +1202,9 @@ void processHTTPRequest(WiFiClient client)
     }
 
     // Change the time-zone?
-    char *tz = url.param( "tz" );
-    if (tz != NULL )
+    char *tz = url.param("tz");
+
+    if (tz != NULL)
     {
         // Record the data into a file.
         write_file("/time.zone", tz);
