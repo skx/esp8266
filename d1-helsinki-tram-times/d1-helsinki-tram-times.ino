@@ -1168,7 +1168,13 @@ void processHTTPRequest(WiFiClient client)
         write_file("/tram.stop", tram_stop);
 
         // So we've changed the tram ID we should refresh the date.
-        fetch_tram_times();
+        //
+        // We force this to happen by updating our screen
+        //
+        for( int i = 1; i  < NUM_ROWS; i++ ) {
+            screen[i][0] = '\0';
+        }
+
 
         // Redirect to the server-root
         redirectIndex(client);
