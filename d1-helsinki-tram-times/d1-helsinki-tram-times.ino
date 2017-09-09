@@ -954,9 +954,9 @@ void serveHTML(WiFiClient client)
 
     // Showing the state.
     if (backlight)
-        client.println("<p>Backlight is ON, <a href=\"/OFF\">turn off</a>.</p>");
+        client.println("<p>Backlight is ON, <a href=\"/?backlight=off\">turn off</a>.</p>");
     else
-        client.println("<p>Backlight OFF, <a href=\"/ON\">turn on</a>.</p>");
+        client.println("<p>Backlight OFF, <a href=\"/?backlight=on\">turn on</a>.</p>");
 
     client.println("</div>");
     client.println("<div class=\"col-md-4\"></div>");
@@ -1128,36 +1128,50 @@ void processHTTPRequest(WiFiClient client)
     String request = client.readStringUntil('\r');
     client.flush();
 
-    // Turn on the backlight?
-    if (request.indexOf("/ON") != -1)
-    {
-        backlight = true;
-        lcd.setBacklight(true);
-
-        // Redirect to the server-root
-        redirectIndex(client);
-        return;
-    }
-
-    // Turn off the backlight?
-    if (request.indexOf("/OFF") != -1)
-    {
-        backlight = false;
-        lcd.setBacklight(false);
-
-        // Redirect to the server-root
-        redirectIndex(client);
-        return;
-    }
-
     //
     // Find the URL we were requested
     //
     // We'll have something like "GET XXXXX HTTP/XX"
     // so we split at the space and send the "XXX HTTP/XX" value
     //
-    URL url(request.substring(request.indexOf(" ")  + 1).c_str());
+    request = request.substring(request.indexOf(" ")  + 1);
 
+    //
+    // Now we'll want to peel off any HTTP-parameters that might
+    // be present, via our utility-helper.
+    //
+    URL url(request.c_str());
+
+    //
+    // Does the user want to change the backlight?
+    //
+    char *blight = url.param("backlight");
+
+    if (blight != NULL)
+    {
+
+        // Turn on?
+        if (strcmp(blight, "on") == 0)
+        {
+            backlight = true;
+            lcd.setBacklight(true);
+        }
+
+        // Turn off?
+        if (strcmp(blight, "off") == 0)
+        {
+            backlight = false;
+            lcd.setBacklight(false);
+        }
+
+        // Redirect to the server-root
+        redirectIndex(client);
+        return;
+    }
+
+    //
+    // Does the user want to change the tram-stop?
+    //
     char *stop = url.param("stop");
 
     if (stop != NULL)
@@ -1183,6 +1197,10 @@ void processHTTPRequest(WiFiClient client)
         return;
     }
 
+
+    //
+    // Does the user want to change the API end-point?
+    //
     char *api = url.param("api");
 
     if (api != NULL)
@@ -1201,7 +1219,10 @@ void processHTTPRequest(WiFiClient client)
         return;
     }
 
-    // Change the time-zone?
+
+    //
+    // Does the user want to change the time-zone?
+    //
     char *tz = url.param("tz");
 
     if (tz != NULL)
@@ -1221,7 +1242,13 @@ void processHTTPRequest(WiFiClient client)
         return;
     }
 
-    // Return a simple response
+
+    //
+    // At this point we've either received zero URL-paramters
+    // or we've only received ones we didn't recognize.
+    //
+    // Either way return a simple response.
+    //
     serveHTML(client);
 
 }
