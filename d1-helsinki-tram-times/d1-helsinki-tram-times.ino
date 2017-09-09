@@ -852,6 +852,8 @@ void fetch_tram_times()
         else
         {
             DEBUG_LOG("Empty response from HTTP-fetch\n");
+            strncpy(screen[1], "Empty HTTP response.", NUM_COLS - 1);
+            strncpy(screen[2], "Replacement bus?", NUM_COLS - 1);
         }
     }
     else
@@ -860,11 +862,13 @@ void fetch_tram_times()
         // Log the status-code
         //
         DEBUG_LOG("HTTP-Request failed, status-Code was %03d\n", code);
+        strncpy(screen[1], "HTTP response failure", NUM_COLS - 1);
 
         //
         // Log the status-line
         //
         DEBUG_LOG("Status line read: '%s'\n", client.status());
+        strncpy(screen[2], client.status() , NUM_COLS - 1);
     }
 }
 
