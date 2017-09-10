@@ -1068,11 +1068,11 @@ void serveHTML(WiFiClient client)
     }
 
     client.print(hours);
-    client.print(" hours ");
+    client.print(" hours, ");
     client.print(mins);
-    client.print(", minutes ");
+    client.print(" minutes, ");
     client.println(secs);
-    client.println(", seconds.");
+    client.println(" seconds.");
 
     client.print("</p>");
     client.println("</div>");
