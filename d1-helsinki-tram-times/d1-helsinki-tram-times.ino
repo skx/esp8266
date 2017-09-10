@@ -863,7 +863,7 @@ void fetch_tram_times()
         // Log the status-code
         //
         DEBUG_LOG("HTTP-Request failed, status-Code was %03d\n", code);
-        strncpy(screen[1], "HTTP response failure", NUM_COLS - 1);
+        strncpy(screen[1], "HTTP failure", NUM_COLS - 1);
 
         //
         // Log the status-line
