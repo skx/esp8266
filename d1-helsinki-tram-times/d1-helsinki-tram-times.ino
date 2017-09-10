@@ -1031,6 +1031,54 @@ void serveHTML(WiFiClient client)
     client.println("<div class=\"col-md-4\"></div>");
     client.println("</div>");
 
+    // Row
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-3\"></div>");
+    client.println("<div class=\"col-md-9\"> <h2>Uptime</h2></div>");
+    client.println("</div>");
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("<div class=\"col-md-4\">");
+    client.print("<p>");
+
+    long currentmillis = millis();
+
+    long days = 0;
+    long hours = 0;
+    long mins = 0;
+    long secs = 0;
+    secs = currentmillis / 1000;
+    mins = secs / 60;
+    hours = mins / 60;
+    days = hours / 24;
+    secs = secs - (mins * 60);
+    mins = mins - (hours * 60);
+    hours = hours - (days * 24);
+
+    if (days > 1)
+    {
+        client.print(days);
+        client.print(" days and ");
+    }
+
+    if (days == 1)
+    {
+        client.print(days);
+        client.print(" day and ");
+    }
+
+    client.print(hours);
+    client.print(" hours ");
+    client.print(mins);
+    client.print(", minutes ");
+    client.println(secs);
+    client.println(", seconds.");
+
+    client.print("</p>");
+    client.println("</div>");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("</div>");
+
     // End of body
     client.println("</div>");
     client.println("</body>");
