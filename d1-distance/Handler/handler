@@ -68,9 +68,9 @@ sub handle_distance
     my $dist = $obj->{ 'distance' };
 
     #
-    #  Larger than 2000?  Error
+    #  Larger than 3m?  Error
     #
-    return if ( $dist >= 2000 );
+    return if ( $dist >= 300 );
 
     #
     # No state?  This is the first run.  We're good
@@ -90,7 +90,7 @@ sub handle_distance
     if ( $state ne $prev )
     {
         print "State changed - New state: $state\n";
-
+        print "\tDistance: $dist, threshold: $threshold\n";
         #
         #  Did we change to the "present" state?
         #
@@ -102,7 +102,7 @@ sub handle_distance
         else
         {
             # Stop the music
-            system("mpc stop");
+            system("mpc pause");
         }
         $prev = $state;
     }
