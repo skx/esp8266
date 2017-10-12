@@ -1,10 +1,17 @@
 # Ultrasonic Distance Reporting
 
-This project uses an HR-SR04 sensor to report upon distance.  In this
-case the sensor is mounted below my monitor, with the intention that
-it can decide if somebody is present or not.
+This project uses an HR-SR04 sensor to report upon distance.
 
-The information will be published to a MQQ / Mosquitto server on the
+In this case the sensor is mounted below my monitor, with the intention
+that it can decide if somebody is present or not based upon measuring the
+distance to the nearest object.
+
+![Sample Deployment](d1-distance.jpg)
+
+If I'm sat in front of the desk I will be measured at 70-90cm away,
+if not the reading will refer to the wall behind me ~2m away.
+
+The distance information will be published to a MQQ / Mosquitto server on the
 topic `distance`.  Additionally the board will dump all its meta-info
 to the topic `meta` on startup.
 
