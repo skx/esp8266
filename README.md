@@ -14,6 +14,11 @@ The [d1-template](d1-template) project is a skeleton which carries out the basic
 
 This project is a good starting point for new work.
 
+## Distance Sensor
+
+The [d1-distance](d1-distance) project is used to determine if my desk-chair
+is occupied by measuring a distance with an ultrasonic sensor.
+
 
 ## Helsinki Tram Display
 
