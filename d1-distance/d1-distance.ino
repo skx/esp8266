@@ -492,7 +492,7 @@ void serveHTML(WiFiClient client)
     client.println("<body>");
     client.println("<nav id=\"nav\" class = \"navbar navbar-default\" style=\"padding-left:50px; padding-right:50px;\">");
     client.println("<div class = \"navbar-header\">");
-    client.println("<h1 class=\"banner\"><a href=\"/\">Temperature &amp; Humidity</a> - <small>by Steve</small></h1>");
+    client.println("<h1 class=\"banner\"><a href=\"/\">Distance-Reporter</a> - <small>by Steve</small></h1>");
     client.println("</div>");
     client.println("<ul class=\"nav navbar-nav navbar-right\">");
     client.println("<li><a href=\"https://steve.fi/Hardware/\">Steve's Projects</a></li>");
@@ -504,7 +504,7 @@ void serveHTML(WiFiClient client)
     // Row
     client.println("<div class=\"row\">");
     client.println("<div class=\"col-md-3\"></div>");
-    client.println("<div class=\"col-md-9\"><h1>Temperature &amp; Humidity</h1><p>&nbsp;</p></div>");
+    client.println("<div class=\"col-md-9\"><h1>Distance Reporter</h1><p>&nbsp;</p></div>");
     client.println("</div>");
     client.println("<div class=\"row\">");
     client.println("<div class=\"col-md-4\"></div>");
@@ -513,7 +513,7 @@ void serveHTML(WiFiClient client)
 
     client.println("<tr><td>Distance</td><td> ");
     client.println(last_distance);
-    client.println("</td></tr>");
+    client.println("cm.</td></tr>");
 
     client.println("</table>");
     client.println("</div>");
