@@ -249,9 +249,9 @@ void setup()
     String api_end_str = read_file("/tram.api");
 
     if (api_end_str.length() > 0)
-        strncpy(api_end_point, api_end_str.c_str(), sizeof(api_end_str) - 1);
+        strncpy(api_end_point, api_end_str.c_str(), sizeof(api_end_point) - 1);
     else
-        strncpy(api_end_point, DEFAULT_API_ENDPOINT, sizeof(api_end_str) - 1);
+        strncpy(api_end_point, DEFAULT_API_ENDPOINT, sizeof(api_end_point) - 1);
 
     //
     // Load the time-zone offset, if we can
@@ -1200,7 +1200,7 @@ void processHTTPRequest(WiFiClient client)
     if (stop != NULL)
     {
         // Update the tram ID
-        strncpy(tram_stop, stop, sizeof(tram_stop)-1);
+        strncpy(tram_stop, stop, sizeof(tram_stop) - 1);
 
         // Record the data in a file.
         write_file("/tram.stop", tram_stop);
@@ -1229,7 +1229,7 @@ void processHTTPRequest(WiFiClient client)
     if (api != NULL)
     {
         // Update the API end-point
-        strncpy(api_end_point, api, sizeof(api_end_point)-1);
+        strncpy(api_end_point, api, sizeof(api_end_point) - 1);
 
         // Record the data in a file.
         write_file("/tram.api", api_end_point);
