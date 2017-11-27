@@ -239,9 +239,9 @@ void setup()
     String tram_stop_str = read_file("/tram.stop");
 
     if (tram_stop_str.length() > 0)
-        strcpy(tram_stop, tram_stop_str.c_str());
+        strncpy(tram_stop, tram_stop_str.c_str(), sizeof(tram_stop) - 1);
     else
-        strcpy(tram_stop, DEFAULT_TRAM_STOP);
+        strncpy(tram_stop, DEFAULT_TRAM_STOP, sizeof(tram_stop) - 1);
 
     //
     // Load the API end-point if we can
@@ -249,9 +249,9 @@ void setup()
     String api_end_str = read_file("/tram.api");
 
     if (api_end_str.length() > 0)
-        strcpy(api_end_point, api_end_str.c_str());
+        strncpy(api_end_point, api_end_str.c_str(), sizeof(api_end_str) - 1);
     else
-        strcpy(api_end_point, DEFAULT_API_ENDPOINT);
+        strncpy(api_end_point, DEFAULT_API_ENDPOINT, sizeof(api_end_str) - 1);
 
     //
     // Load the time-zone offset, if we can
@@ -296,7 +296,6 @@ void setup()
     draw_line(0, "WiFi Connected");
     draw_line(1, WiFi.localIP().toString().c_str());
 
-
     //
     // Allow the IP to be visible.
     //
@@ -318,8 +317,6 @@ void setup()
     //
     timeClient.setTimeOffset(time_zone_offset * (60 * 60));
     timeClient.setUpdateInterval(300 * 1000);
-
-
 
     //
     // Now we can start our HTTP server
@@ -417,9 +414,6 @@ void on_long_click()
     long_click = true;
 }
 
-
-
-
 //
 // Called just before the date/time is updated via NTP
 //
@@ -500,7 +494,8 @@ void loop()
     // Format the time & date in the first row.
     //
     //                               HH:MM:SS     $DAY $NUM $MON $YEAR
-    snprintf(screen[0], NUM_COLS, "%02d:%02d:%02d %s %02d %s %04d", hour, min, sec, d_name.c_str(), day, m_name.c_str(), year);
+    snprintf(screen[0], NUM_COLS, "%02d:%02d:%02d %s %02d %s %04d",
+             hour, min, sec, d_name.c_str(), day, m_name.c_str(), year);
 
 
 
@@ -751,7 +746,7 @@ void update_tram_times(const char *txt)
                 memset(id, '\0', sizeof(id));
 
                 strncpy(id, pch, (comma - pch) >= sizeof(id) ? sizeof(id) - 1 : (comma - pch));
-                
+
                 //
                 // Now we have comma pointing to ",HH:MM:SS,DESCRIPTION-HERE"
                 //
