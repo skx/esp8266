@@ -31,7 +31,7 @@
 //   The user-selectable-changes will be persisted to flash memory, so
 //   they survive reboots.
 //
-//   Because the Helsinki Tram API is a complex GraphQL-bease we're getting
+//   Because the Helsinki Tram API is a complex GraphQL-beast we're getting
 //   data via a simple helper:
 //
 //       https://steve.fi/Helsinki/Tram-API/
@@ -274,7 +274,7 @@ void setup()
     draw_line(0, "Starting up ..");
 
     //
-    // Horrid Hack
+    // Horrid Hack to use a static IP.
     //
 #if 0
     IPAddress ip(10, 0, 0, 90);
@@ -751,10 +751,7 @@ void update_tram_times(const char *txt)
                 memset(id, '\0', sizeof(id));
 
                 strncpy(id, pch, (comma - pch) >= sizeof(id) ? sizeof(id) - 1 : (comma - pch));
-
-                int hours = -1;
-                int mins  = -1;
-
+                
                 //
                 // Now we have comma pointing to ",HH:MM:SS,DESCRIPTION-HERE"
                 //
@@ -766,24 +763,7 @@ void update_tram_times(const char *txt)
                 // digits in total.
                 //
                 if (comma[9] == ',')
-                {
                     strncpy(tm, comma + 1 , 5);
-
-                    //
-                    // Setup hours / mins
-                    //
-                    char t[3];
-                    t[0] = comma[1];
-                    t[1] = comma[2];
-                    t[3] = '\0';
-                    hours = atoi(t);
-
-                    t[0] = comma[4];
-                    t[1] = comma[5];
-                    t[3] = '\0';
-                    mins = atoi(t);
-
-                }
 
                 snprintf(screen[line], NUM_COLS - 1, "  Line %s @ %s", id, tm);
 
