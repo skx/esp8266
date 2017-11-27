@@ -1200,7 +1200,7 @@ void processHTTPRequest(WiFiClient client)
     if (stop != NULL)
     {
         // Update the tram ID
-        strcpy(tram_stop, stop);
+        strncpy(tram_stop, stop, sizeof(tram_stop)-1);
 
         // Record the data in a file.
         write_file("/tram.stop", tram_stop);
@@ -1229,7 +1229,7 @@ void processHTTPRequest(WiFiClient client)
     if (api != NULL)
     {
         // Update the API end-point
-        strcpy(api_end_point, api);
+        strncpy(api_end_point, api, sizeof(api_end_point)-1);
 
         // Record the data in a file.
         write_file("/tram.api", api_end_point);
