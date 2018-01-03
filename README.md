@@ -19,6 +19,10 @@ This project is a good starting point for new work.
 The [d1-distance](d1-distance) project is used to determine if my desk-chair
 is occupied by measuring a distance with an ultrasonic sensor.
 
+## EPaper Image Display
+
+The [epaper-web-image](epaper-web-image) project demonstrates featching an image over HTTP/HTTPS and drawing
+it upon a 4.2" epaper display.
 
 ## Helsinki Tram Display
 
