@@ -115,13 +115,6 @@ void display_url(const char *url)
     //
     display.fillScreen(GxEPD_WHITE);
     display.setTextColor(GxEPD_BLACK);
-    display.drawLine(0,0,400,400, GxEPD_BLACK);
-    display.drawLine(0,400,0,00, GxEPD_BLACK);
-      display.update();
-
-      
-    display.fillScreen(GxEPD_WHITE);
-    display.setTextColor(GxEPD_BLACK);
     //
     // The host and path we're going to fetch.
     //
@@ -203,6 +196,7 @@ void display_url(const char *url)
                 return;
             }
         }
+        int l = 0;
 
         //
         // Now we hope we'll have smooth-sailing, and we'll
@@ -227,16 +221,9 @@ void display_url(const char *url)
                 // Once we find a newline we process that input, then
                 // we keep reading more.
                 //
-                m_body = m_body + c;
-
-                if (c == '\n')
+                if (c == '\n' && strlen(m_body.c_str()) > 5 )
                 {
-if ( x == false ) {
-                      DEBUG_LOG( "READ LINE: '%s'", m_body.c_str() );
-                      //DEBUG_LOG( "%d -> %d -> %d -> %d\n", line[0], line[1], line[2], line[3]);
-                    x = true;
-                    }
-
+                  l += 1;
                     
                     //
                     // Here we've read a complete line.
@@ -245,7 +232,7 @@ if ( x == false ) {
                     // need to parse that into four integers, and then
                     // draw the appropriate line on our display.
                     //
-                    int line[3] = { 0 };
+                    int line[5] = { 0 };
                     int i = 0;
                     
 
@@ -253,8 +240,6 @@ if ( x == false ) {
                     // Parse into values.
                     // 
                     char *tmp = strdup( m_body.c_str() );
-                    
-
                     char* ptr = strtok(tmp, ",");
 
                     while(ptr != NULL) {
@@ -264,17 +249,30 @@ if ( x == false ) {
                       ptr = strtok(NULL, ",");
                     }
                     free( tmp );
-                    
+
+                    if ( x == false ) {
+                      DEBUG_LOG( "READ LINE: '%s'", m_body.c_str() );
+                      DEBUG_LOG( "%d -> %d -> %d -> %d\n", line[0], line[1], line[2], line[3]);
+                      x = true;
+                    }
+DEBUG_LOG( "Processed another line: %d\n", l );
+if ( ( l % 500 ) == 0 ) {
+  l = 0;
+display.update();
+}
                     //
                     // Draw the line.
                     //
-                    display.drawLine(line[0], line[1], line[2], line[3], GxEPD_BLACK);
+                    display.drawLine(line[1], line[0], line[3], line[2], GxEPD_BLACK);
 
                     //
                     // Now we nuke the memory so that we can read
                     // another line.
                     //
                     m_body = "";
+                }
+                else {
+                    m_body = m_body + c;
                 }
             }
             else
@@ -289,7 +287,7 @@ if ( x == false ) {
                 currentLineIsBlank = false;
 
             // Wait for more packetses
-            delay(1);
+       //     delay(1);
         }
 
         m_client.stop();
@@ -328,7 +326,7 @@ void loop()
         //
         // Fetch / display
         //
-        display_url("https://steve.fi/Hardware/d1-epaper/knot.dat");
+        display_url("https://raw.githubusercontent.com/skx/esp8266/master/epaper-web-image/knot.dat");
 
         //
         // And never again.
