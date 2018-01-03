@@ -1,0 +1,53 @@
+#!/usr/bin/perl
+#
+# Read the data which was produced by "convert.pl" and re-create
+# a 400x300 monochrome image from it
+#
+# Usage: create $input.dat
+#
+
+
+use strict;
+use warnings;
+use Image::Magick;
+
+
+#
+#  Get the input file.
+#
+my $arg = shift;
+die "Usage: $0 input.dat" unless ( $arg && -e $arg );
+
+my $image = Image::Magick->new(
+    size  => '400x300',
+    type  => 'Monochrome',
+    depth => 2,
+);
+$image->Read('xc:white');
+
+#
+# Now read the points
+#
+open( my $handle, "<", $arg )
+  or die "Failed to read points from $arg - $!";
+
+while( my $line = <$handle> )
+{
+    chomp( $line );
+    my ( $x, $y, $x2, $y2 ) = split( /,/, $line );
+
+    my $res = $image->Draw(
+                           primitive => 'line',
+                           stroke    => "black",
+                           points    => "$y,$x,$y2,$x2",
+                          );
+
+    warn $res if $res;
+}
+close( $handle );
+
+#
+# Write out the image
+#
+my $res = $image->Write( filename => "$arg-out.png" );
+warn $res if $res;

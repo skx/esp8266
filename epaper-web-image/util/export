@@ -1,0 +1,69 @@
+#!/usr/bin/perl
+#
+#  Convert the single image specified upon the command-line
+# into a series of lines.
+#
+#   mogrify -resize 400x300\! $input
+#   convert $input -monochrome $output
+#   perl export.pl $filename
+#
+
+
+use strict;
+use warnings;
+use Image::Magick;
+
+# Get the image-filename from the command-line
+my $arg = shift;
+die "Usage: $0 image.ext" unless( defined( $arg ) && -e $arg );
+
+# Create an image-helper.
+my $IMimage = Image::Magick->new;
+$IMimage->Read($arg);
+
+# Dimensions
+my $X = 400;
+my $Y = 300;
+
+# Process
+my $y = 0;
+while( $y < $Y ) {
+    my $x     = 0;
+
+    my $blackstart = undef;
+
+    while( $x < $X ) {
+
+        my $pixel = $IMimage->Get('pixel['.$x.','.$y.']');
+
+        if ( $pixel eq "0,0,0,0" )
+        {
+            if (! defined $blackstart ) {
+                $blackstart = $x;
+            }
+        }
+        else {
+            # white - so the black has ended
+            if (defined $blackstart ) {
+
+                #
+                # NOTE: we're at the next pixel so the colour
+                # finished at the previous coordinate.
+                my $e = $x - 1;
+                print "$y,$blackstart,$y,$e\n";
+                $blackstart = undef;
+            }
+        }
+        $x+= 1;
+
+    }
+
+    # Still in a run of black at the end of the row?
+    if (defined $blackstart ) {
+        print "$y,$blackstart,$y,$X\n";
+        $blackstart = undef;
+    }
+
+    $y += 1;
+
+}
