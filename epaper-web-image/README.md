@@ -1,7 +1,7 @@
 # epaper-web-image
 
-This directory contains code to retrieve an image over HTTP/HTTPS and display
-it upon a 4.2" epaper display.
+This directory contains code to retrieve a collection of image-data from
+a remote HTTP-site and display it upon a 4.2" epaper display.
 
 
 ## How it works
@@ -13,13 +13,18 @@ data.
 To display a specific image you need to process it, to create a data-file.
 
 The supplied files beneath [util/](util/) do that.  In the example we
-fetch the file:
+fetch the following URL:
 
-* knot.dat
+* http://plain.steve.fi//Hardware/d1-epaper/knot.dat
 
 That was created via:
 
     ./utils/export ./knot.jpg > knot.dat
+
+You can transform in the opposite direction via:
+
+    ./utils/import ./knot.dat
+    display knot.dat-out.png
 
 
 ## Required Libraries
@@ -38,7 +43,6 @@ For details of wiring, and an overview of the whole process please see the
 following writeup:
 
 * https://steve.fi/Hardware/d1-epaper/
-
 
 Steve
 -- 
