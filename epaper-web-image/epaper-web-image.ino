@@ -1,5 +1,5 @@
 //
-// Display an image fetched via a remote URL.
+// Alternate between displaying two images, fetched from a remote URL.
 //
 // This script is designed to display a pre-processed image upon a 4.2"
 // epaper, and is based upon the writeup located here:
@@ -107,18 +107,18 @@ void access_point_callback(WiFiManager* myWiFiManager)
 //
 // Fetch and display the image specified at the given URL
 //
-void display_url()
+void display_url(const char * m_path)
 {
     //
     // Clear the display.
     //
     display.fillScreen(GxEPD_WHITE);
     display.setTextColor(GxEPD_BLACK);
+
     //
-    // The host and path we're going to fetch.
+    // The host we're going to fetch from.
     //
     char m_host[] = "plain.steve.fi";
-    char m_path[] = "/Hardware/d1-epaper/knot.dat";
 
     char m_tmp[50] = { '\0' };
     memset(m_tmp, '\0', sizeof(m_tmp));
@@ -137,18 +137,18 @@ void display_url()
     String m_body = "";
     long now;
 
-    DEBUG_LOG( "About to make the connection to '%s:%d'\n", m_host, port );
+    DEBUG_LOG("About to make the connection to '%s:%d'\n", m_host, port);
 
     //
     // Connect to the remote host, and send the HTTP request.
     //
     if (!m_client.connect(m_host, port))
     {
-        DEBUG_LOG( "Failed to connect");
+        DEBUG_LOG("Failed to connect");
         return;
     }
 
-    DEBUG_LOG( "Making HTTP-request\n" );
+    DEBUG_LOG("Making HTTP-request\n");
 
     m_client.print("GET ");
     m_client.print(m_path);
@@ -159,7 +159,7 @@ void display_url()
     m_client.println("Connection: close");
     m_client.println("");
 
-    DEBUG_LOG( "Made HTTP-request\n");
+    DEBUG_LOG("Made HTTP-request\n");
 
     now = millis();
 
@@ -175,6 +175,7 @@ void display_url()
             return;
         }
     }
+
     int l = 0;
 
     //
@@ -199,7 +200,7 @@ void display_url()
             // Once we find a newline we process that input, then
             // we keep reading more.
             //
-            if (c == '\n' && strlen(m_tmp) > 5 )
+            if (c == '\n' && strlen(m_tmp) > 5)
             {
                 l += 1;
 
@@ -219,9 +220,10 @@ void display_url()
                 //
                 char* ptr = strtok(m_tmp, ",");
 
-                while(ptr != NULL && i < 4) {
+                while (ptr != NULL && i < 4)
+                {
                     // create next part
-                    line[i] = atoi( ptr );
+                    line[i] = atoi(ptr);
                     i++;
                     ptr = strtok(NULL, ",");
                 }
@@ -238,7 +240,8 @@ void display_url()
                 //
                 memset(m_tmp, '\0', sizeof(m_tmp));
             }
-            else {
+            else
+            {
                 // TODO - buffer-overflow.
                 m_tmp[strlen(m_tmp)] = c;
             }
@@ -258,9 +261,9 @@ void display_url()
         delay(1);
     }
 
-    DEBUG_LOG( "Nothing more is available - terminating" );
+    DEBUG_LOG("Nothing more is available - terminating");
     m_client.stop();
-    DEBUG_LOG( "Processed %d lines", l );
+    DEBUG_LOG("Processed %d lines", l);
 
 
     //
@@ -273,6 +276,10 @@ void display_url()
 
 void loop()
 {
+    char *one = "/Hardware/d1-epaper/knot.dat";
+    char *two = "/Hardware/d1-epaper/skull.dat";
+    int i = 0;
+
     //
     // Have we displayed the image?
     //
@@ -287,11 +294,19 @@ void loop()
     //
     if (show == false)
     {
-
         //
         // Fetch / display
         //
-        display_url();
+        if (i == 0)
+        {
+            display_url(one);
+            i = 1;
+        }
+        else
+        {
+            display_url(two);
+            i = 0;
+        }
 
         //
         // And never again.
@@ -302,11 +317,11 @@ void loop()
 
 
     //
-    // Update the image every hour.
+    // Update the image 60 seconds.
     //
     // Do this by pretending we've never updated, even though we have.
     //
-    if (millis() - displayed > (60 * 60 * 1000))
+    if (millis() - displayed > (60 * 1000))
         show = false;
 
 
