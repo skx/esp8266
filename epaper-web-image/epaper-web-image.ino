@@ -50,7 +50,6 @@
 //
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
-#include <WiFiClientSecure.h>
 
 
 //
@@ -108,7 +107,7 @@ void access_point_callback(WiFiManager* myWiFiManager)
 //
 // Fetch and display the image specified at the given URL
 //
-void display_url(const char *url)
+void display_url()
 {
     //
     // Clear the display.
@@ -118,41 +117,17 @@ void display_url(const char *url)
     //
     // The host and path we're going to fetch.
     //
-    char m_host[50] = { '\0' };
-    char m_path[50] = { '\0' };
+    char m_host[] = "plain.steve.fi";
+    char m_path[] = "/Hardware/d1-epaper/knot.dat";
+
+    char m_tmp[50] = { '\0' };
+    memset(m_tmp, '\0', sizeof(m_tmp));
 
     /*
-     * Look for the host.
+     * Create a HTTP client-object.
      */
-    char *host_start = strstr(url, "://");
-
-    if (host_start != NULL)
-    {
-        /*
-         * Look for the end.
-         */
-        host_start += 3;
-        char *host_end = host_start;
-
-        while (host_end[0] != '/')
-            host_end += 1;
-
-        strncpy(m_host, host_start, host_end - host_start);
-        strcpy(m_path, host_end);
-    }
-    else
-    {
-        Serial.println("BUG: Bogus URL");
-        return;
-    }
-
-     DEBUG_LOG( "Converted %s -> Host:'%s' Path:'%s'\n", url, m_host, m_path );
-     
-    /*
-     * Create the appropriate client-object.
-     */
-    WiFiClientSecure m_client;
-    int port = 443;
+    WiFiClient m_client;
+    int port = 80;
 
     //
     // Keep track of where we are.
@@ -167,141 +142,131 @@ void display_url(const char *url)
     //
     // Connect to the remote host, and send the HTTP request.
     //
-    if (m_client.connect(m_host, port))
+    if (!m_client.connect(m_host, port))
     {
-        DEBUG_LOG( "Making HTTP-request\n" );
-        
-        m_client.print("GET ");
-        m_client.print(m_path);
-        m_client.println(" HTTP/1.0");
-        m_client.print("Host: ");
-        m_client.println(m_host);
-        m_client.println("User-Agent: epaper-web-image/1.0");
-        m_client.println("Connection: close");
-        m_client.println("");
+        DEBUG_LOG( "Failed to connect");
+        return;
+    }
 
-        DEBUG_LOG( "Made HTTP-request\n");
-        
-        now = millis();
+    DEBUG_LOG( "Making HTTP-request\n" );
 
-        //
-        // Test for timeout waiting for the first byte.
-        //
-        while (m_client.available() == 0)
+    m_client.print("GET ");
+    m_client.print(m_path);
+    m_client.println(" HTTP/1.0");
+    m_client.print("Host: ");
+    m_client.println(m_host);
+    m_client.println("User-Agent: epaper-web-image/1.0");
+    m_client.println("Connection: close");
+    m_client.println("");
+
+    DEBUG_LOG( "Made HTTP-request\n");
+
+    now = millis();
+
+    //
+    // Test for timeout waiting for the first byte.
+    //
+    while (m_client.available() == 0)
+    {
+        if (millis() - now > 15000)
         {
-            if (millis() - now > 15000)
+            Serial.println(">>> Client Timeout !");
+            m_client.stop();
+            return;
+        }
+    }
+    int l = 0;
+
+    //
+    // Now we hope we'll have smooth-sailing, and we'll
+    // read a single character until we've got it all
+    //
+    while (m_client.available())
+    {
+        char c = m_client.read();
+
+        if (finishedHeaders)
+        {
+            //
+            // Here we're reading the body of the response.
+            //
+            // We keep appending characters, but we don't want to
+            // store the whole damn response in a string, because
+            // that would eat all our RAM.
+            //
+            // Instead we read each character until we find a newline
+            //
+            // Once we find a newline we process that input, then
+            // we keep reading more.
+            //
+            if (c == '\n' && strlen(m_tmp) > 5 )
             {
-                Serial.println(">>> Client Timeout !");
-                m_client.stop();
-                return;
+                l += 1;
+
+                //
+                // Here we've read a complete line.
+                //
+                // The line will be of the form "x,y,X,Y", so we
+                // need to parse that into four integers, and then
+                // draw the appropriate line on our display.
+                //
+                int line[5] = { 0 };
+                int i = 0;
+
+
+                //
+                // Parse into values.
+                //
+                char* ptr = strtok(m_tmp, ",");
+
+                while(ptr != NULL && i < 4) {
+                    // create next part
+                    line[i] = atoi( ptr );
+                    i++;
+                    ptr = strtok(NULL, ",");
+                }
+
+
+                //
+                // Draw the line.
+                //
+                display.drawLine(line[1], line[0], line[3], line[2], GxEPD_BLACK);
+
+                //
+                // Now we nuke the memory so that we can read
+                // another line.
+                //
+                memset(m_tmp, '\0', sizeof(m_tmp));
+            }
+            else {
+                // TODO - buffer-overflow.
+                m_tmp[strlen(m_tmp)] = c;
             }
         }
-        int l = 0;
-
-        //
-        // Now we hope we'll have smooth-sailing, and we'll
-        // read a single character until we've got it all
-        //
-        while (m_client.available())
+        else
         {
-            char c = m_client.read();
-
-            if (finishedHeaders)
-            {
-              static bool x = false;
-                //
-                // Here we're reading the body of the response.
-                //
-                // We keep appending characters, but we don't want to
-                // store the whole damn response in a string, because
-                // that would eat all our RAM.
-                //
-                // Instead we read each character until we find a newline
-                //
-                // Once we find a newline we process that input, then
-                // we keep reading more.
-                //
-                if (c == '\n' && strlen(m_body.c_str()) > 5 )
-                {
-                  l += 1;
-                    
-                    //
-                    // Here we've read a complete line.
-                    //
-                    // The line will be of the form "x,y,X,Y", so we
-                    // need to parse that into four integers, and then
-                    // draw the appropriate line on our display.
-                    //
-                    int line[5] = { 0 };
-                    int i = 0;
-                    
-
-                    //
-                    // Parse into values.
-                    // 
-                    char *tmp = strdup( m_body.c_str() );
-                    char* ptr = strtok(tmp, ",");
-
-                    while(ptr != NULL) {
-                      // create next part
-                      line[i] = atoi( ptr );
-                      i++;  
-                      ptr = strtok(NULL, ",");
-                    }
-                    free( tmp );
-
-                    if ( x == false ) {
-                      DEBUG_LOG( "READ LINE: '%s'", m_body.c_str() );
-                      DEBUG_LOG( "%d -> %d -> %d -> %d\n", line[0], line[1], line[2], line[3]);
-                      x = true;
-                    }
-DEBUG_LOG( "Processed another line: %d\n", l );
-if ( ( l % 500 ) == 0 ) {
-  l = 0;
-display.update();
-}
-                    //
-                    // Draw the line.
-                    //
-                    display.drawLine(line[1], line[0], line[3], line[2], GxEPD_BLACK);
-
-                    //
-                    // Now we nuke the memory so that we can read
-                    // another line.
-                    //
-                    m_body = "";
-                }
-                else {
-                    m_body = m_body + c;
-                }
-            }
-            else
-            {
-                if (currentLineIsBlank && c == '\n')
-                    finishedHeaders = true;
-            }
-
-            if (c == '\n')
-                currentLineIsBlank = true;
-            else if (c != '\r')
-                currentLineIsBlank = false;
-
-            // Wait for more packetses
-       //     delay(1);
+            if (currentLineIsBlank && c == '\n')
+                finishedHeaders = true;
         }
 
-        m_client.stop();
+        if (c == '\n')
+            currentLineIsBlank = true;
+        else if (c != '\r')
+            currentLineIsBlank = false;
 
-        
+        // Wait for more packetses
+        delay(1);
+    }
+
+    DEBUG_LOG( "Nothing more is available - terminating" );
+    m_client.stop();
+    DEBUG_LOG( "Processed %d lines", l );
+
+
     //
     // Trigger the update of the display.
     //
     display.update();
-    }
-    else
-    {
-      DEBUG_LOG( "Failed to connect\n");
-    }
 
 }
 
@@ -316,7 +281,7 @@ void loop()
     //
     // The time we last displayed the image.
     static long displayed = 0;
-    
+
     //
     // If we've not shown the image, then do so.
     //
@@ -326,7 +291,7 @@ void loop()
         //
         // Fetch / display
         //
-        display_url("https://raw.githubusercontent.com/skx/esp8266/master/epaper-web-image/knot.dat");
+        display_url();
 
         //
         // And never again.
