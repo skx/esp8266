@@ -137,7 +137,7 @@ void display_url(const char * m_path)
     String m_body = "";
     long now;
 
-    DEBUG_LOG("About to make the connection to '%s:%d'\n", m_host, port);
+    DEBUG_LOG("About to make the connection to '%s:%d' for %s\n", m_host, port, m_path);
 
     //
     // Connect to the remote host, and send the HTTP request.
@@ -278,7 +278,7 @@ void loop()
 {
     char *one = "/Hardware/d1-epaper/knot.dat";
     char *two = "/Hardware/d1-epaper/skull.dat";
-    int i = 0;
+    static int i = 0;
 
     //
     // Have we displayed the image?
