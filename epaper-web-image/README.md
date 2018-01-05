@@ -13,11 +13,14 @@ data.
 To display a specific image you need to process it, to create a data-file.
 
 The supplied files beneath [util/](util/) do that.  In the example we
-fetch the following URL:
+fetch the following two URLs:
 
 * http://plain.steve.fi//Hardware/d1-epaper/knot.dat
+  * Which corresponds to the image http://plain.steve.fi//Hardware/d1-epaper/knot.png
+* http://plain.steve.fi//Hardware/d1-epaper/skull.dat
+  * Which corresponds to the image http://plain.steve.fi//Hardware/d1-epaper/skull.png
 
-That was created via:
+These were each created via the `utils/export` script, for example:
 
     ./utils/export ./knot.jpg > knot.dat
 
@@ -45,4 +48,4 @@ following writeup:
 * https://steve.fi/Hardware/d1-epaper/
 
 Steve
--- 
+--
