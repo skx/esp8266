@@ -47,6 +47,10 @@ The project is documented [on the project homepage](https://steve.fi/Hardware/d1
 This [simple project](d1-temp) records the current temperature & humidity value via a DHT22 sensor, and submits to a local MQ bus.
 
 
+## Web Radio
+
+The [d1-web-radio](d1-web-radio) project allows a web-browser to control a TEA5767-based radio receiver, allowing you to listen to the radio with ease.
+
 ## Weather Station
 
 The [d1-weather-station](d1-weather-station) uses an OLED display to show the current date, time, weather-summary & three-day summary via remote HTTP fetches from wunderground.com.
