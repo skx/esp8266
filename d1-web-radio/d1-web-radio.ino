@@ -65,12 +65,21 @@ WiFiServer server(80);
 //
 TEA5767 Radio;
 
-//Variables:
+//
+// Are we searching?
+//
 int search_mode = 0;
+
+//
+// If we're searching then this holds the direction.
+//
 int search_direction;
+
+//
+// Buffer for reading the radio-status
+//
 unsigned char buf[5];
-int inByte;
-int flag = 0;
+
 
 
 //
@@ -185,46 +194,23 @@ void loop()
     //
     ArduinoOTA.handle();
 
-    if (Serial.available() > 0)
+
+    //
+    // Are we searching?
+    //
+    if (search_mode == 1)
     {
-        inByte = Serial.read();
-
-        if (inByte == '+' || inByte == '-')   //accept only + and - from keyboard
-        {
-            flag = 0;
-        }
-    }
-
-
-    if (Radio.read_status(buf) == 1)
-    {
-        //When button pressed, search for new station
-        if (search_mode == 1)
+        //
+        // If so try to do the search, and if it succeeds then
+        // cancel further searching.
+        //
+        if (Radio.read_status(buf) == 1)
         {
             if (Radio.process_search(buf, search_direction) == 1)
             {
                 search_mode = 0;
             }
         }
-
-        //If forward button is pressed, go up to next station
-        if (inByte == '+')
-        {
-            Serial.println("Searching up");
-            search_mode = 1;
-            search_direction = TEA5767_SEARCH_DIR_UP;
-            Radio.search_up(buf);
-        }
-
-        //If backward button is pressed, go down to next station
-        if (inByte == '-')
-        {
-            Serial.println("Searching down");
-            search_mode = 1;
-            search_direction = TEA5767_SEARCH_DIR_DOWN;
-            Radio.search_down(buf);
-        }
-
     }
 
     //
@@ -434,7 +420,7 @@ void processHTTPRequest(WiFiClient client)
         {
             search_mode = 1;
             search_direction = TEA5767_SEARCH_DIR_DOWN;
-            Radio.search_up(buf);
+            Radio.search_down(buf);
         }
 
         // Redirect to the server-root
