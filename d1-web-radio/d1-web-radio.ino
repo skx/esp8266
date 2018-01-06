@@ -413,7 +413,7 @@ void processHTTPRequest(WiFiClient client)
             search_mode = 1;
             search_direction = TEA5767_SEARCH_DIR_UP;
             Radio.search_up(buf);
-
+            DEBUG_LOG( "Searching up ..\n" );
         }
 
         if (strcmp(search, "down") == 0)
@@ -421,6 +421,7 @@ void processHTTPRequest(WiFiClient client)
             search_mode = 1;
             search_direction = TEA5767_SEARCH_DIR_DOWN;
             Radio.search_down(buf);
+            DEBUG_LOG( "Searching down ..\n" );
         }
 
         // Redirect to the server-root
