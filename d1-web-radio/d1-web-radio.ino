@@ -331,12 +331,13 @@ void serveHTML(WiFiClient client)
         // Row
         client.println("<div class=\"row\">");
         client.println("<div class=\"col-md-3\"></div>");
-        client.println("<div class=\"col-md-9\"> <h2>Search</h2></div>");
+        client.println("<div class=\"col-md-9\"> <h2>Operations</h2></div>");
         client.println("</div>");
         client.println("<div class=\"row\">");
         client.println("<div class=\"col-md-4\"></div>");
         client.println("<div class=\"col-md-4\">");
         client.print("<p>Search <a href=\"/?search=up\">up</a>, or <a href=\"/?search=down\">down</a>.</p>");
+        client.print("<p><a href=\"/?mute=1\">Mute</a>, or <a href=\"/?unmute=1\">unmute</a>.</p>");
         client.println("</div>");
         client.println("<div class=\"col-md-4\"></div>");
         client.println("</div>");
@@ -413,7 +414,7 @@ void processHTTPRequest(WiFiClient client)
             search_mode = 1;
             search_direction = TEA5767_SEARCH_DIR_UP;
             Radio.search_up(buf);
-            DEBUG_LOG( "Searching up ..\n" );
+            DEBUG_LOG("Searching up ..\n");
         }
 
         if (strcmp(search, "down") == 0)
@@ -421,13 +422,40 @@ void processHTTPRequest(WiFiClient client)
             search_mode = 1;
             search_direction = TEA5767_SEARCH_DIR_DOWN;
             Radio.search_down(buf);
-            DEBUG_LOG( "Searching down ..\n" );
+            DEBUG_LOG("Searching down ..\n");
         }
 
         // Redirect to the server-root
         redirectIndex(client);
         return;
     }
+
+    char *mute = url.param("mute");
+
+    if (mute != NULL)
+    {
+        DEBUG_LOG("Mute ..\n");
+        Radio.mute();
+        redirectIndex(client);
+        return;
+    }
+
+    char *unmute = url.param("unmute");
+
+    if (unmute != NULL)
+    {
+        DEBUG_LOG("Unmute ..\n");
+
+        if (Radio.read_status(buf) == 1)
+        {
+            double current_freq = floor(Radio.frequency_available(buf) / 100000 + .5) / 10;
+            Radio.set_frequency(current_freq);
+        }
+
+        redirectIndex(client);
+        return;
+    }
+
 
     // Return a simple response
     serveHTML(client);

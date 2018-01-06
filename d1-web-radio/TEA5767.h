@@ -159,6 +159,9 @@ class TEA5767 {
 		void search_down (unsigned char *buf);
 		int process_search (unsigned char *buf, int search_dir);
 		void init();
+
+                // added by Steve.
+                void mute();
 };
 
 #endif  // _TEA5767_H_

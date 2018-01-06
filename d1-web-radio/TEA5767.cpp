@@ -304,3 +304,19 @@ void TEA5767::init() {
 //  set_frequency((float) freq / 1000000);
 
 }
+
+void TEA5767::mute() {
+    unsigned char buf[5];
+
+    if ( read_status(buf) == 1)
+    {
+        buf[0] |= 0b10000000;
+
+        Wire.beginTransmission (0x60);
+
+	for (int i = 0; i < 5; i++)
+            Wire.write (buf[i]);
+
+	Wire.endTransmission ();
+    }
+}
