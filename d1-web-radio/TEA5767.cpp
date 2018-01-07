@@ -149,6 +149,8 @@ double TEA5767::frequency_available (unsigned char *buf) {
 }
 
 void TEA5767::search_up (unsigned char *buf) {
+
+        mute();
   	unsigned div;
   	double freq_av;
 
@@ -206,6 +208,7 @@ void TEA5767::search_up (unsigned char *buf) {
 
 void TEA5767::search_down (unsigned char *buf)
 {
+    mute();
   	unsigned div;
   	double freq_av;
 
