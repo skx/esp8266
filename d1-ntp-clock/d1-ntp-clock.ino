@@ -104,7 +104,7 @@ void setup()
     //
     //   BRIGHT_DARKEST   = 0
     //   BRIGHT_TYPICAL   = 2
-    //   BRIGHT_BRIGHTEST = 7
+    //   BRIGHTEST        = 7
     //
     tm1637.set(BRIGHT_DARKEST);
 
