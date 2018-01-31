@@ -15,7 +15,7 @@ use Image::Magick;
 
 # Get the image-filename from the command-line
 my $arg = shift;
-die "Usage: $0 image.ext" unless( defined( $arg ) && -e $arg );
+die "Usage: $0 image.ext" unless ( defined($arg) && -e $arg );
 
 # Create an image-helper.
 my $IMimage = Image::Magick->new;
@@ -27,24 +27,43 @@ my $Y = 300;
 
 # Process
 my $y = 0;
-while( $y < $Y ) {
-    my $x     = 0;
+while ( $y < $Y )
+{
+    my $x = 0;
 
     my $blackstart = undef;
 
-    while( $x < $X ) {
+    while ( $x < $X )
+    {
 
-        my $pixel = $IMimage->Get('pixel['.$x.','.$y.']');
+        my $pixel = $IMimage->Get( 'pixel[' . $x . ',' . $y . ']' );
 
-        if ( $pixel eq "0,0,0,0" )
+        #
+        #  In the past we used to look for "0,0,0,0" to mean "black"
+        # and "65535,65535,65535,0" to mean white.
+        #
+        #  However sometimes we see values that are "low but non-zero"
+        # so we now count them as black if less than 50%.
+        #
+        my ( $r, $g, $b, $d ) = split( /,/, $pixel );
+        my $threshold = 65535 / 2;
+
+        #
+        # If less than the threshold, which is a bit arbitrary, then
+        # we pretend the pixels are solid black.
+        #
+        if ( ( $r < $threshold ) && ( $g < $threshold ) && ( $b < $threshold ) )
         {
-            if (! defined $blackstart ) {
+            if ( !defined $blackstart )
+            {
                 $blackstart = $x;
             }
         }
-        else {
+        else
+        {
             # white - so the black has ended
-            if (defined $blackstart ) {
+            if ( defined $blackstart )
+            {
 
                 #
                 # NOTE: we're at the next pixel so the colour
@@ -54,12 +73,13 @@ while( $y < $Y ) {
                 $blackstart = undef;
             }
         }
-        $x+= 1;
+        $x += 1;
 
     }
 
     # Still in a run of black at the end of the row?
-    if (defined $blackstart ) {
+    if ( defined $blackstart )
+    {
         print "$y,$blackstart,$y,$X\n";
         $blackstart = undef;
     }
