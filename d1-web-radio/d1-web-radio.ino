@@ -1,15 +1,15 @@
 //
 // d1-web-radio.ino
 //
-// Operate a radio.  We serve a simple HTTP-page allowing the user
-// to search up/down, or enter a frequency directly.
+// An internet-connected radio!  We serve a simple HTTP-page allowing the user
+// to search up/down, enter a frequency directly, and mute/unmute.
 //
-// Omissions in this project include:
+// For clients connected via serial we can also interact via that.
+//
+// Omissions in this project are caused by lack of hardware support:
 //
 // * Volume control.
-// * RDS
-//
-// These are missing from the hardware, but we _could_ add muting..
+// * RDS.
 //
 //   Steve
 //   --
@@ -92,7 +92,13 @@ void setup()
     //
 #ifdef DEBUG
     Serial.begin(115200);
+    Serial.setTimeout(25);
 #endif
+
+    //
+    // So we get working mdns.
+    //
+    WiFi.hostname(PROJECT_NAME);
 
     //
     // Handle Connection.
@@ -224,9 +230,96 @@ void loop()
         processHTTPRequest(client);
 
     //
-    // Now sleep a little.
+    // Is there serial-input available?
     //
-    delay(5);
+    if (Serial.available())
+    {
+
+        //
+        // Read a command from the serial-console.
+        //
+        char buffer[80] = { '\0' };
+        int read = Serial.readBytesUntil('\n', buffer, sizeof(buffer) - 1);
+
+        //
+        // Remove non-print characters
+        //
+        for (int i = 0; i < strlen(buffer); i++)
+        {
+            if (! isprint(buffer[i]))
+                buffer[i] = '\0';
+        }
+
+        //
+        // Now look for commands we know of.
+        //
+        if (strcmp(buffer, "search up") == 0)
+        {
+
+            search_mode = 1;
+            search_direction = TEA5767_SEARCH_DIR_UP;
+            Radio.search_up(buf);
+            DEBUG_LOG("Searching up ..\n");
+        }
+        else if (strcmp(buffer, "search down") == 0)
+        {
+
+            search_mode = 1;
+            search_direction = TEA5767_SEARCH_DIR_DOWN;
+            Radio.search_down(buf);
+            DEBUG_LOG("Searching down ..\n");
+        }
+        else if (strcmp(buffer, "mute") == 0)
+        {
+            Radio.mute();
+        }
+        else if (strcmp(buffer, "info") == 0)
+        {
+            if (Radio.read_status(buf) == 1)
+            {
+                double current_freq = floor(Radio.frequency_available(buf) / 100000 + .5) / 10;
+                int  stereo = Radio.stereo(buf);
+                int signal_level = Radio.signal_level(buf);
+
+                DEBUG_LOG("Tuned to %fFM\n", current_freq);
+                DEBUG_LOG("Signal strength: %d/15\n", signal_level);
+
+                if (stereo)
+                    DEBUG_LOG("(stereo)\n");
+                else
+                    DEBUG_LOG(" (mono)\n");
+            }
+        }
+        else if (strcmp(buffer, "unmute") == 0)
+        {
+
+            if (Radio.read_status(buf) == 1)
+            {
+                double current_freq = floor(Radio.frequency_available(buf) / 100000 + .5) / 10;
+                Radio.set_frequency(current_freq);
+            }
+        }
+        else if ((strncmp(buffer, "tune ", 5) == 0) && (strlen(buffer) > 5))
+        {
+
+            // Look for the number
+            double f = atof(buffer + 4);
+            DEBUG_LOG("Tuning to %f\n", f);
+
+            Radio.set_frequency(f);
+        }
+        else
+        {
+            DEBUG_LOG("Ignoring input: '%s'.  Valid commands are:\n", buffer);
+            DEBUG_LOG("\tinfo\n");
+            DEBUG_LOG("\tmute\n");
+            DEBUG_LOG("\tsearch up\n");
+            DEBUG_LOG("\tsearch down\n");
+            DEBUG_LOG("\ttune 12.3\n");
+            DEBUG_LOG("\tunmute\n");
+
+        }
+    }
 }
 
 
