@@ -71,6 +71,11 @@ TEA5767 Radio;
 int search_mode = 0;
 
 //
+// Are we muted?
+//
+int g_muted = false;
+
+//
 // If we're searching then this holds the direction.
 //
 int search_direction;
@@ -242,7 +247,9 @@ void loop()
         int read = Serial.readBytesUntil('\n', buffer, sizeof(buffer) - 1);
 
         //
-        // Remove non-print characters
+        // Remove non-printable characters
+        //
+        // (mostly this is to remove `\r`, `\n`, etc.
         //
         for (int i = 0; i < strlen(buffer); i++)
         {
@@ -255,58 +262,28 @@ void loop()
         //
         if (strcmp(buffer, "search up") == 0)
         {
-
-            search_mode = 1;
-            search_direction = TEA5767_SEARCH_DIR_UP;
-            Radio.search_up(buf);
-            DEBUG_LOG("Searching up ..\n");
+            searchUp();
         }
         else if (strcmp(buffer, "search down") == 0)
         {
-
-            search_mode = 1;
-            search_direction = TEA5767_SEARCH_DIR_DOWN;
-            Radio.search_down(buf);
-            DEBUG_LOG("Searching down ..\n");
+            searchDown();
         }
         else if (strcmp(buffer, "mute") == 0)
         {
-            Radio.mute();
+            setMute(true);
         }
         else if (strcmp(buffer, "info") == 0)
         {
-            if (Radio.read_status(buf) == 1)
-            {
-                double current_freq = floor(Radio.frequency_available(buf) / 100000 + .5) / 10;
-                int  stereo = Radio.stereo(buf);
-                int signal_level = Radio.signal_level(buf);
-
-                DEBUG_LOG("Tuned to %fFM\n", current_freq);
-                DEBUG_LOG("Signal strength: %d/15\n", signal_level);
-
-                if (stereo)
-                    DEBUG_LOG("(stereo)\n");
-                else
-                    DEBUG_LOG(" (mono)\n");
-            }
+            info();
         }
         else if (strcmp(buffer, "unmute") == 0)
         {
-
-            if (Radio.read_status(buf) == 1)
-            {
-                double current_freq = floor(Radio.frequency_available(buf) / 100000 + .5) / 10;
-                Radio.set_frequency(current_freq);
-            }
+            setMute(false);
         }
         else if ((strncmp(buffer, "tune ", 5) == 0) && (strlen(buffer) > 5))
         {
-
-            // Look for the number
             double f = atof(buffer + 4);
-            DEBUG_LOG("Tuning to %f\n", f);
-
-            Radio.set_frequency(f);
+            tuneTo(f);
         }
         else
         {
@@ -317,7 +294,6 @@ void loop()
             DEBUG_LOG("\tsearch down\n");
             DEBUG_LOG("\ttune 12.3\n");
             DEBUG_LOG("\tunmute\n");
-
         }
     }
 }
@@ -430,7 +406,19 @@ void serveHTML(WiFiClient client)
         client.println("<div class=\"col-md-4\"></div>");
         client.println("<div class=\"col-md-4\">");
         client.print("<p>Search <a href=\"/?search=up\">up</a>, or <a href=\"/?search=down\">down</a>.</p>");
-        client.print("<p><a href=\"/?mute=1\">Mute</a>, or <a href=\"/?unmute=1\">unmute</a>.</p>");
+
+        //
+        // Only show mute/unmute if we're in the opposite state.
+        //
+        if (g_muted)
+        {
+            client.print("<p><a href=\"/?unmute=1\">Unmute</a>.</p>");
+        }
+        else
+        {
+            client.print("<p><a href=\"/?mute=1\">Mute</a>.</p>");
+        }
+
         client.println("</div>");
         client.println("<div class=\"col-md-4\"></div>");
         client.println("</div>");
@@ -483,12 +471,8 @@ void processHTTPRequest(WiFiClient client)
 
     if (number != NULL)
     {
-        // Change the timezone now
         double var  = atof(number);
-
-        DEBUG_LOG("Converted '%s' -> '%f'\n", number, var);
-
-        Radio.set_frequency(var);
+        tuneTo(var);
 
         // Redirect to the server-root
         redirectIndex(client);
@@ -503,20 +487,10 @@ void processHTTPRequest(WiFiClient client)
     if (search != NULL)
     {
         if (strcmp(search, "up") == 0)
-        {
-            search_mode = 1;
-            search_direction = TEA5767_SEARCH_DIR_UP;
-            Radio.search_up(buf);
-            DEBUG_LOG("Searching up ..\n");
-        }
+            searchUp();
 
         if (strcmp(search, "down") == 0)
-        {
-            search_mode = 1;
-            search_direction = TEA5767_SEARCH_DIR_DOWN;
-            Radio.search_down(buf);
-            DEBUG_LOG("Searching down ..\n");
-        }
+            searchDown();
 
         // Redirect to the server-root
         redirectIndex(client);
@@ -527,8 +501,7 @@ void processHTTPRequest(WiFiClient client)
 
     if (mute != NULL)
     {
-        DEBUG_LOG("Mute ..\n");
-        Radio.mute();
+        setMute(true);
         redirectIndex(client);
         return;
     }
@@ -537,14 +510,7 @@ void processHTTPRequest(WiFiClient client)
 
     if (unmute != NULL)
     {
-        DEBUG_LOG("Unmute ..\n");
-
-        if (Radio.read_status(buf) == 1)
-        {
-            double current_freq = floor(Radio.frequency_available(buf) / 100000 + .5) / 10;
-            Radio.set_frequency(current_freq);
-        }
-
+        setMute(false);
         redirectIndex(client);
         return;
     }
@@ -553,4 +519,70 @@ void processHTTPRequest(WiFiClient client)
     // Return a simple response
     serveHTML(client);
 
+}
+
+
+//
+// Radio operations - defined here so they can be called by the
+// web-handler, or via the serial-console handler
+//
+void info()
+{
+    if (Radio.read_status(buf) == 1)
+    {
+        double current_freq = floor(Radio.frequency_available(buf) / 100000 + .5) / 10;
+        int  stereo = Radio.stereo(buf);
+        int signal_level = Radio.signal_level(buf);
+
+        DEBUG_LOG("Tuned to %fFM\n", current_freq);
+        DEBUG_LOG("Signal strength: %d/15\n", signal_level);
+
+        if (stereo)
+            DEBUG_LOG("(stereo)\n");
+        else
+            DEBUG_LOG("(mono)\n");
+
+        if (g_muted)
+            DEBUG_LOG("(muted)\n");
+    }
+}
+
+void setMute(bool state)
+{
+    if (state)
+    {
+        Radio.mute();
+    }
+    else
+    {
+        if (Radio.read_status(buf) == 1)
+        {
+            double current_freq = floor(Radio.frequency_available(buf) / 100000 + .5) / 10;
+            Radio.set_frequency(current_freq);
+        }
+    }
+
+    g_muted = state;
+}
+
+void searchDown()
+{
+    search_mode = 1;
+    search_direction = TEA5767_SEARCH_DIR_DOWN;
+    Radio.search_down(buf);
+    DEBUG_LOG("Searching down ..\n");
+}
+
+void searchUp()
+{
+    search_mode = 1;
+    search_direction = TEA5767_SEARCH_DIR_UP;
+    Radio.search_up(buf);
+    DEBUG_LOG("Searching up ..\n");
+}
+
+void tuneTo(double freq)
+{
+    DEBUG_LOG("Tuning to %f\n", freq);
+    Radio.set_frequency(freq);
 }
