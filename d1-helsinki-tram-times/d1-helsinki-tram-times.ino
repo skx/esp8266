@@ -21,7 +21,7 @@
 //      #######################
 //
 //
-//   There is a simple HTTP-server which is running on port 80, which
+//   There is also a simple HTTP-server which is running on port 80, which
 //   will mirror the LCD-contents, and allow changes to be made to the
 //   device.
 //
@@ -80,10 +80,12 @@
 //
 #define DEFAULT_API_ENDPOINT "https://steve.fi/Helsinki/Tram-API/api.cgi?id=__ID__"
 
+
 //
 // The weather API URL
 //
 #define DEFAULT_WEATHER_ENDPOINT "http://api.wunderground.com/api/4902569e6db0130a/conditions/lang:en/q/FI/pws:IHELSINK114.json"
+
 
 //
 // The default tram stop to monitor.
@@ -107,6 +109,7 @@
 //
 #include <ESP8266WiFi.h>
 #include <ArduinoOTA.h>
+
 
 //
 // For driving the LCD
@@ -139,6 +142,10 @@
 #include "url_fetcher.h"
 #include "url_parameters.h"
 
+
+//
+// Forward-declaration of function-prototypes.
+//
 String read_file(const char *path);
 void draw_line(int row, const char *txt);
 void access_point_callback(WiFiManager* myWiFiManager);
@@ -150,6 +157,7 @@ void on_short_click();
 void on_long_click();
 void on_double_click();
 void processHTTPRequest(WiFiClient client);
+
 
 //
 // NTP client, and UDP socket it uses.
@@ -169,24 +177,34 @@ int time_zone_offset = 0;
 //
 WiFiServer server(80);
 
-//
-// We can either show the date or temperature.
-//
-// Here we decide which it is.
-//
-typedef enum {DATE, TEMPERATURE} state;
 
 //
-// Our current state
+// Our top line will show the time.  It might also show the date, or the
+// temperature.  Here we have an enum to describe the various modes.
+//
+typedef enum {DATE, MESSAGE, TEMPERATURE} state;
+
+//
+// Our current state:
+//
+//  DATE -> Drawing time & date.
+//
+//  TEMPERATURE -> Drawing time & temperature reading.
+//
+//  MESSAGE -> Drawing a single message.
 //
 state g_state = DATE;
-state g_prev_state = DATE;
+
 
 //
-// Our cuirrent temperature
+// Our current temperature, as fetched via the remote API.
 //
 char g_temp[10] = {'\0'};
 
+//
+// Our current message, if any, which has been set by a HTTP-client
+//
+char g_msg[32] = { '\0' };
 
 //
 // The tram stop we're going to display.
@@ -552,7 +570,8 @@ void loop()
 
 
     //
-    // Every five seconds we swap between date + temp
+    // Every five seconds we swap between date + temp if either
+    // is displayed.
     //
     // NOTE: We have to record the time of the last change here
     // because otherwise this loop might come around while the
@@ -572,6 +591,10 @@ void loop()
 
         case TEMPERATURE:
             g_state = DATE;
+            break;
+
+        case MESSAGE:
+            // NOP.
             break;
         }
 
@@ -597,6 +620,10 @@ void loop()
     case TEMPERATURE:
         snprintf(screen[0], NUM_COLS, "%02d:%02d:%02d %s",
                  hour, min, sec, g_temp);
+        break;
+
+    case MESSAGE:
+        snprintf(screen[0], NUM_COLS, "%s", g_msg);
         break;
     }
 
@@ -1205,6 +1232,23 @@ void serveHTML(WiFiClient client)
     client.println("<div class=\"col-md-4\"></div>");
     client.println("</div>");
 
+
+    // Row
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-3\"></div>");
+    client.println("<div class=\"col-md-9\"> <h2>Set Message</h2></div>");
+    client.println("</div>");
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("<div class=\"col-md-4\">");
+    client.print("<p>If you wish you can display a message to viewers, instead of the date/time/temperature.  Enter <code>#</code> to remove the message.</p>");
+    client.print("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"msg\" size=\"125\" value=\"");
+    client.print(g_msg);
+    client.print("\"><input type=\"submit\" value=\"Update\"></form>");
+    client.println("</div>");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("</div>");
+
     // Row
     client.println("<div class=\"row\">");
     client.println("<div class=\"col-md-3\"></div>");
@@ -1441,6 +1485,34 @@ void processHTTPRequest(WiFiClient client)
         return;
     }
 
+
+    //
+    // Does the user want to display a message?
+    //
+    char *msg = url.param("msg");
+
+    if (msg != NULL)
+    {
+        // Clear the old message.
+        memset(g_msg, '\0', sizeof(g_msg));
+
+        // If the message contains "#" then return
+        // to the date/time display.
+        if (strchr(msg, '#') != NULL)
+        {
+            g_state = DATE;
+        }
+        else
+        {
+            // Otherwise set the message, and the mode
+            strncpy(g_msg, msg, sizeof(g_msg) - 1);
+            g_state = MESSAGE;
+        }
+
+        // Redirect to the server-root
+        redirectIndex(client);
+        return;
+    }
 
     //
     // Does the user want to change the temperature API end-point?
