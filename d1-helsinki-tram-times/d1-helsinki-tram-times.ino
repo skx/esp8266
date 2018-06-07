@@ -1119,9 +1119,9 @@ void serveHTML(WiFiClient client)
     client.print("\">");
     client.print(tram_stop);
     client.print("</a>, but you can change that:</p>");
-    client.println("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"stop\" value=\"");
+    client.print("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"stop\" value=\"");
     client.print(tram_stop);
-    client.println("\"><input type=\"submit\" value=\"Update\"></form>");
+    client.print("\"><input type=\"submit\" value=\"Update\"></form>");
     client.println("</div>");
     client.println("<div class=\"col-md-4\"></div>");
     client.println("</div>");
@@ -1168,9 +1168,9 @@ void serveHTML(WiFiClient client)
     client.println("<div class=\"col-md-4\"></div>");
     client.println("<div class=\"col-md-4\">");
     client.print("<p>This device works by polling a remote API, to fetch tram-data.  You can change the end-point in the form below:</p>");
-    client.println("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"api\" size=\"125\" value=\"");
+    client.print("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"api\" size=\"125\" value=\"");
     client.print(api_end_point);
-    client.println("\"><input type=\"submit\" value=\"Update\"></form>");
+    client.print("\"><input type=\"submit\" value=\"Update\"></form>");
     client.println("</div>");
     client.println("<div class=\"col-md-4\"></div>");
     client.println("</div>");
@@ -1184,9 +1184,9 @@ void serveHTML(WiFiClient client)
     client.println("<div class=\"col-md-4\"></div>");
     client.println("<div class=\"col-md-4\">");
     client.print("<p>This device can show the temperature, which is retrieved from a remote API.  You can change the end-point in the form below:</p>");
-    client.println("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"temp\" size=\"125\" value=\"");
+    client.print("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"temp\" size=\"125\" value=\"");
     client.print(temp_end_point);
-    client.println("\"><input type=\"submit\" value=\"Update\"></form>");
+    client.print("\"><input type=\"submit\" value=\"Update\"></form>");
     client.println("</div>");
     client.println("<div class=\"col-md-4\"></div>");
     client.println("</div>");
@@ -1436,7 +1436,7 @@ void processHTTPRequest(WiFiClient client)
     if (temp != NULL)
     {
         // Update the API end-point
-        strncpy(temp_end_point, api, sizeof(temp_end_point) - 1);
+        strncpy(temp_end_point, temp, sizeof(temp_end_point) - 1);
 
         // Record the data in a file.
         write_file("/temp.api", temp_end_point);
