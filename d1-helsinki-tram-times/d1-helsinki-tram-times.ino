@@ -1080,7 +1080,19 @@ void serveHTML(WiFiClient client)
     for (int i = 0; i < NUM_ROWS; i++)
     {
         client.print("<tr><td><code>");
-        client.print(screen[i]);
+
+        for (int j = 0; j < strlen(screen[i]); j++)
+        {
+            if (screen[i][j] == 0xDF)
+            {
+                client.print("&deg;");
+            }
+            else
+            {
+                client.print(screen[i][j]);
+            }
+        }
+
         client.print("</code></td></tr>");
     }
 
