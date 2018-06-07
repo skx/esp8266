@@ -165,6 +165,24 @@ int time_zone_offset = 0;
 //
 WiFiServer server(80);
 
+//
+// We can either show the date or temperature.
+//
+// Here we decide which it is.
+//
+typedef enum {DATE, TEMPERATURE} state;
+
+//
+// Our current state
+//
+state g_state = DATE;
+state g_prev_state = DATE;
+
+//
+// Our cuirrent temperature
+//
+char g_temp[10] = {'\0'};
+
 
 //
 // The tram stop we're going to display.
@@ -454,6 +472,11 @@ void loop()
     static char prev_time[NUM_COLS] = { '\0'};
 
     //
+    // The last time we changed the mode from date <-> temperature
+    //
+    static long last_change = millis();
+
+    //
     // Handle any pending over the air updates.
     //
     ArduinoOTA.handle();
@@ -490,14 +513,6 @@ void loop()
     String m_name = timeClient.getMonth();
     int day = timeClient.getDayOfMonth();
 
-    //
-    // Format the time & date in the first row.
-    //
-    //                               HH:MM:SS     $DAY $NUM $MON $YEAR
-    snprintf(screen[0], NUM_COLS, "%02d:%02d:%02d %s %02d %s %04d",
-             hour, min, sec, d_name.c_str(), day, m_name.c_str(), year);
-
-
 
     //
     // Every two minutes we'll update the departure times.
@@ -505,10 +520,93 @@ void loop()
     // We also do it immediately the first time we're run,
     // when there is no pending time available.
     //
-    if (((min % 2 == 0) && (sec == 0)) ||
-            (strlen(screen[1]) == 0))
+    if ((strlen(screen[1]) == 0) || ((min % 2 == 0) && (sec == 0)))
         fetch_tram_times();
 
+    //
+    // Every hour we'll update the temperature.
+    //
+    // Or initially if it is empty.
+    //
+    if ((strlen(g_temp) == 0) || ((min == 0) && (sec == 0)))
+        fetch_temperature();
+
+
+    //
+    // Every five seconds we swap between date + temp
+    //
+    // NOTE: We have to record the time of the last change here
+    // because otherwise this loop might come around while the
+    // second value hasn't changed.  That would result in the
+    // mode being changed N times in a second, with much confusion
+    // and hilarity.
+    //
+    if (((sec % 10) == 0) && ((millis() - last_change) > 1000))
+    {
+        switch (g_state)
+        {
+        case DATE:
+            g_state = TEMPERATURE;
+            break;
+
+        case TEMPERATURE:
+            g_state = DATE;
+            break;
+        }
+
+        last_change = millis();
+    }
+
+
+    //
+    // Format the first row of the display
+    //
+    memset(screen[0], '\0', NUM_COLS);
+
+    //
+    // We show either the HH:MM:SS + Date
+    //
+    switch (g_state)
+    {
+    case DATE:
+        snprintf(screen[0], NUM_COLS, "%02d:%02d:%02d %s %02d %s %04d",
+                 hour, min, sec, d_name.c_str(), day, m_name.c_str(), year);
+        break;
+
+    case TEMPERATURE:
+        snprintf(screen[0], NUM_COLS, "%02d:%02d:%02d %s",
+                 hour, min, sec, g_temp);
+        break;
+    }
+
+
+    //
+    // Now draw all the rows - correctly doing this
+    // after the previous step might have updated
+    // the display.
+    //
+    // That avoids showing outdated information, albeit
+    // information that is only outdated for <1 second!
+    //
+    // NOTE: We delay() for less than a second in this function
+    // so we cheat here, only updating the LCD if the currently
+    // formatted time is different to that we set in the past.
+    //
+    // i.e. We don't re-draw the screen unless the time has changed.
+    //
+    // If the real-time hasn't changed then the tram-arrival times
+    // haven't changed either, since that only updates every two minutes..
+    //
+    if (strcmp(prev_time, screen[0]) != 0)
+    {
+        for (int i = 0; i < NUM_ROWS; i++)
+            draw_line(i, screen[i]);
+
+        //
+        // Keep the current time in our local/static buffer.
+        //
+        strcpy(prev_time, screen[0]);
+    }
 
 
     //
@@ -538,34 +636,6 @@ void loop()
                 lcd.setBacklight(backlight);
             }
         }
-    }
-
-    //
-    // Now draw all the rows - correctly doing this
-    // after the previous step might have updated
-    // the display.
-    //
-    // That avoids showing outdated information, albeit
-    // information that is only outdated for <1 second!
-    //
-    // NOTE: We delay() for less than a second in this function
-    // so we cheat here, only updating the LCD if the currently
-    // formatted time is different to that we set in the past.
-    //
-    // i.e. We don't re-draw the screen unless the time has changed.
-    //
-    // If the real-time hasn't changed then the tram-arrival times
-    // haven't changed either, since that only updates every two minutes..
-    //
-    if (strcmp(prev_time, screen[0]) != 0)
-    {
-        for (int i = 0; i < NUM_ROWS; i++)
-            draw_line(i, screen[i]);
-
-        //
-        // Keep the current time in our local/static buffer.
-        //
-        strcpy(prev_time, screen[0]);
     }
 
 
@@ -758,7 +828,7 @@ void update_tram_times(const char *txt)
                 // digits in total.
                 //
                 if (comma[9] == ',')
-                    strncpy(tm, comma + 1 , 5);
+                    strncpy(tm, comma + 1, 5);
 
                 snprintf(screen[line], NUM_COLS - 1, "  Line %s @ %s", id, tm);
 
@@ -774,6 +844,84 @@ void update_tram_times(const char *txt)
         }
 
         pch = strtok(NULL, "\r\n");
+    }
+}
+
+
+// Given the text of a HTTP-response from our weather API
+// update `g_temp` to have the current temperature.
+void update_temp(const char *txt)
+{
+    char* pch = NULL;
+
+    int line = 1;
+    pch = strtok((char *)txt, "\r\n");
+
+    while (pch != NULL)
+    {
+        if (strstr(pch, "\"temp_c\":") != NULL)
+        {
+            char *colon = strchr(pch, ':');
+
+            // Copy the value
+            strcpy(g_temp, colon + 1);
+
+            // remove any ","
+            for (int i = 0; i < strlen(g_temp); i++)
+            {
+                if (g_temp[i] == ',')
+                {
+                    g_temp[i] = '\0';
+                }
+            }
+
+            strcat(g_temp, "'C");
+        }
+
+        pch = strtok(NULL, "\r\n");
+    }
+}
+
+
+//
+// Call a remote HTTP-service to get the current temperature.
+//
+void fetch_temperature()
+{
+    draw_line(NUM_ROWS - 1, "Refreshing temp ..");
+
+    // Empty the previous value.
+    memset(g_temp, '\0', sizeof(g_temp));
+
+    //
+    // Make our remote call.
+    //
+    UrlFetcher client("http://api.wunderground.com/api/4902569e6db0130a/conditions/lang:en/q/FI/pws:IHELSINK114.json");
+
+    //
+    // If that succeeded.
+    //
+    int code = client.code();
+
+    if (code == 200)
+    {
+        //
+        // Parse the returned data and process it.
+        //
+        String body = client.body();
+
+        if (body.length() > 0)
+        {
+            update_temp(body.c_str());
+        }
+        else
+        {
+            strcpy(g_temp, "TFAIL1");
+        }
+    }
+    else
+    {
+        snprintf(g_temp, sizeof(g_temp) - 1, "TFAIL%d", code);
     }
 }
 
@@ -844,7 +992,7 @@ void fetch_tram_times()
         // Log the status-line
         //
         DEBUG_LOG("Status line read: '%s'\n", client.status());
-        strncpy(screen[2], client.status() , NUM_COLS - 1);
+        strncpy(screen[2], client.status(), NUM_COLS - 1);
     }
 }
 
