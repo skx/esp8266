@@ -80,6 +80,10 @@
 //
 #define DEFAULT_API_ENDPOINT "https://steve.fi/Helsinki/Tram-API/api.cgi?id=__ID__"
 
+//
+// The weather API URL
+//
+#define DEFAULT_WEATHER_ENDPOINT "http://api.wunderground.com/api/4902569e6db0130a/conditions/lang:en/q/FI/pws:IHELSINK114.json"
 
 //
 // The default tram stop to monitor.
@@ -194,6 +198,11 @@ char tram_stop[12] = { '\0' };
 //
 char api_end_point[256] = { '\0' };
 
+//
+// The API end-point for getting temperature
+//
+char temp_end_point[256] = { '\0' };
+
 
 //
 // This two-dimensional array holds the text that we're
@@ -270,6 +279,16 @@ void setup()
         strncpy(api_end_point, api_end_str.c_str(), sizeof(api_end_point) - 1);
     else
         strncpy(api_end_point, DEFAULT_API_ENDPOINT, sizeof(api_end_point) - 1);
+
+    //
+    // Load the weather-endpoint, if we can.
+    //
+    String weather_end = read_file("/temp.api");
+
+    if (weather_end.length() > 0)
+        strncpy(temp_end_point, weather_end.c_str(), sizeof(temp_end_point) - 1);
+    else
+        strncpy(temp_end_point, DEFAULT_WEATHER_ENDPOINT, sizeof(temp_end_point) - 1);
 
     //
     // Load the time-zone offset, if we can
@@ -546,7 +565,9 @@ void loop()
         switch (g_state)
         {
         case DATE:
-            g_state = TEMPERATURE;
+            if (strlen(temp_end_point) > 0)
+                g_state = TEMPERATURE;
+
             break;
 
         case TEMPERATURE:
@@ -896,7 +917,7 @@ void fetch_temperature()
     //
     // Make our remote call.
     //
-    UrlFetcher client("http://api.wunderground.com/api/4902569e6db0130a/conditions/lang:en/q/FI/pws:IHELSINK114.json");
+    UrlFetcher client(temp_end_point);
 
     //
     // If that succeeded.
@@ -1147,8 +1168,24 @@ void serveHTML(WiFiClient client)
     client.println("<div class=\"col-md-4\"></div>");
     client.println("<div class=\"col-md-4\">");
     client.print("<p>This device works by polling a remote API, to fetch tram-data.  You can change the end-point in the form below:</p>");
-    client.println("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"api\" size=\"75\" value=\"");
+    client.println("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"api\" size=\"125\" value=\"");
     client.print(api_end_point);
+    client.println("\"><input type=\"submit\" value=\"Update\"></form>");
+    client.println("</div>");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("</div>");
+
+    // Row
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-3\"></div>");
+    client.println("<div class=\"col-md-9\"> <h2>Change Temperature End-Point</h2></div>");
+    client.println("</div>");
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("<div class=\"col-md-4\">");
+    client.print("<p>This device can show the temperature, which is retrieved from a remote API.  You can change the end-point in the form below:</p>");
+    client.println("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"temp\" size=\"125\" value=\"");
+    client.print(temp_end_point);
     client.println("\"><input type=\"submit\" value=\"Update\"></form>");
     client.println("</div>");
     client.println("<div class=\"col-md-4\"></div>");
@@ -1390,6 +1427,27 @@ void processHTTPRequest(WiFiClient client)
         return;
     }
 
+
+    //
+    // Does the user want to change the temperature API end-point?
+    //
+    char *temp = url.param("temp");
+
+    if (temp != NULL)
+    {
+        // Update the API end-point
+        strncpy(temp_end_point, api, sizeof(temp_end_point) - 1);
+
+        // Record the data in a file.
+        write_file("/temp.api", temp_end_point);
+
+        // So we've changed the temperature ID we should refresh the date.
+        fetch_temperature();
+
+        // Redirect to the server-root
+        redirectIndex(client);
+        return;
+    }
 
     //
     // Does the user want to change the time-zone?
