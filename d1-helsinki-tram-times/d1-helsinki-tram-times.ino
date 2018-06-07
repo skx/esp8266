@@ -896,7 +896,9 @@ void update_temp(const char *txt)
                 }
             }
 
-            strcat(g_temp, "'C");
+            // degree, C, NULL
+            char buf[3] = { 0xDF, 'C', '\0' };
+            strcat(g_temp, buf);
         }
 
         pch = strtok(NULL, "\r\n");
