@@ -179,19 +179,30 @@ WiFiServer server(80);
 
 
 //
-// Our top line will show the time.  It might also show the date, or the
-// temperature.  Here we have an enum to describe the various modes.
+// The top line is special, it will either show:
 //
-typedef enum {DATE, MESSAGE, TEMPERATURE} state;
+//  TIME + DATE
+//
+//  TIME + DATE OR TIME + Temperature, changing every 5 seconds.
+//
+//  TIME + Temperature
+//
+//  Just a fixed message.
+//
+// Here we describe those possible states
+//
+typedef enum {DATE, DATE_OR_TEMP, MESSAGE, TEMPERATURE} state;
 
 //
-// Our current state:
+// Our selected state:
 //
 //  DATE -> Drawing time & date.
 //
-//  TEMPERATURE -> Drawing time & temperature reading.
+//  DATE_OR_TEMP -> Drawing time+date OR time+temp, swapping every 10s.
 //
-//  MESSAGE -> Drawing a single message.
+//  MESSAGE -> Showing a fixed message.
+//
+//  TEMPERATURE -> Drawing time + temperature.
 //
 state g_state = DATE;
 
@@ -205,6 +216,12 @@ char g_temp[10] = {'\0'};
 // Our current message, if any, which has been set by a HTTP-client
 //
 char g_msg[32] = { '\0' };
+
+//
+// If we're to swap between date + temperature then store the current
+// state here.
+//
+state g_temp_date = DATE;
 
 //
 // The tram stop we're going to display.
@@ -563,15 +580,16 @@ void loop()
     //
     // Every hour we'll update the temperature.
     //
-    // Or initially if it is empty.
+    // Or initially if it is empty - but we don't need to bother
+    // if we're not in a mode where this is visible.
     //
-    if ((strlen(g_temp) == 0) || ((min == 0) && (sec == 0)))
-        fetch_temperature();
+    if (g_state == TEMPERATURE || g_state == DATE_OR_TEMP)
+        if ((strlen(g_temp) == 0) || ((min == 0) && (sec == 0)))
+            fetch_temperature();
 
 
     //
-    // Every five seconds we swap between date + temp if either
-    // is displayed.
+    // Every 10 seconds we swap between date + temp if either is displayed.
     //
     // NOTE: We have to record the time of the last change here
     // because otherwise this loop might come around while the
@@ -579,23 +597,23 @@ void loop()
     // mode being changed N times in a second, with much confusion
     // and hilarity.
     //
-    if (((sec % 10) == 0) && ((millis() - last_change) > 1000))
+    if (g_state == DATE_OR_TEMP)
     {
-        switch (g_state)
+        if (((sec % 10) == 0) && ((millis() - last_change) > 1000))
         {
-        case DATE:
-            if (strlen(temp_end_point) > 0)
-                g_state = TEMPERATURE;
+            switch (g_temp_date)
+            {
+            case DATE:
+                if (strlen(temp_end_point) > 0)
+                    g_state = TEMPERATURE;
 
-            break;
+                break;
 
-        case TEMPERATURE:
-            g_state = DATE;
-            break;
+            case TEMPERATURE:
+                g_state = DATE;
+                break;
 
-        case MESSAGE:
-            // NOP.
-            break;
+            }
         }
 
         last_change = millis();
@@ -608,7 +626,7 @@ void loop()
     memset(screen[0], '\0', NUM_COLS);
 
     //
-    // We show either the HH:MM:SS + Date
+    // Decide what to draw.
     //
     switch (g_state)
     {
@@ -620,6 +638,24 @@ void loop()
     case TEMPERATURE:
         snprintf(screen[0], NUM_COLS, "%02d:%02d:%02d %s",
                  hour, min, sec, g_temp);
+        break;
+
+    case DATE_OR_TEMP:
+
+        // repetition here is bad
+        switch (g_temp_date)
+        {
+        case DATE:
+            snprintf(screen[0], NUM_COLS, "%02d:%02d:%02d %s %02d %s %04d",
+                     hour, min, sec, d_name.c_str(), day, m_name.c_str(), year);
+            break;
+
+        case TEMPERATURE:
+            snprintf(screen[0], NUM_COLS, "%02d:%02d:%02d %s",
+                     hour, min, sec, g_temp);
+            break;
+        }
+
         break;
 
     case MESSAGE:
@@ -1147,6 +1183,40 @@ void serveHTML(WiFiClient client)
     client.println("<div class=\"col-md-4\"></div>");
     client.println("</div>");
 
+
+    // Row
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-3\"></div>");
+    client.println("<div class=\"col-md-9\"> <h2>Display Mode</h2></div>");
+    client.println("</div>");
+    client.println("<div class=\"row\">");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("<div class=\"col-md-4\">");
+
+    switch (g_state)
+    {
+    case DATE:
+        client.println("<p>Showing time & date.</p>");
+        break;
+
+    case TEMPERATURE:
+        client.println("<p>Showing time & temperature.</p>");
+        break;
+
+    case DATE_OR_TEMP:
+        client.println("<p>Showing time, and alternating between date &amp; temperature.</p>");
+        break;
+
+    case MESSAGE:
+        client.println("<p>Showing a fixed message.</p>");
+        break;
+    }
+
+    client.println("<p><a href=\"/?mode=date\">Show date</a>,  <a href=\"/?mode=temp\">Show temperature</a>, alternate <a href=\"?mode=date_temp\">between date and temperature</a>.</p>");
+    client.println("</div>");
+    client.println("<div class=\"col-md-4\"></div>");
+    client.println("</div>");
+
     // Row
     client.println("<div class=\"row\">");
     client.println("<div class=\"col-md-3\"></div>");
@@ -1461,6 +1531,31 @@ void processHTTPRequest(WiFiClient client)
         // Redirect to the server-root
         redirectIndex(client);
         return;
+    }
+
+    char *mode = url.param("mode");
+
+    if (mode != NULL)
+    {
+        if (strcmp(mode, "date") == 0)
+        {
+            g_state = DATE;
+        }
+
+        if (strcmp(mode, "temp") == 0)
+        {
+            g_state = TEMPERATURE;
+        }
+
+        if (strcmp(mode, "date_temp") == 0)
+        {
+            g_state = DATE_OR_TEMP;
+        }
+
+        // Redirect to the server-root
+        redirectIndex(client);
+        return;
+
     }
 
 
