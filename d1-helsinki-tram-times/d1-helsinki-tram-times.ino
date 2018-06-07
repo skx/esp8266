@@ -4,10 +4,9 @@
 //   This is a simple program which uses WiFi & an LCD display
 //   to show useful information.
 //
-//   The top line of the display will show the current date & time,
-//   which will be retrieved via NTP every five minutes - we don't
-//   need an RTC to store the time, because even if it drifts it
-//   can't drift too much in that time.
+//   The top line of the display will default to showing the current time,
+//   and date.  But it might display a fixed message, or the temperature
+//   too.
 //
 //   Each additional line of the display will show the departure
 //   of the next tram from the chosen stop.  For example we'd
@@ -21,12 +20,14 @@
 //      #######################
 //
 //
-//   There is also a simple HTTP-server which is running on port 80, which
+//   There is a simple HTTP-server which is running on port 80, which
 //   will mirror the LCD-contents, and allow changes to be made to the
 //   device.
 //
 //   For example the user can change the time-zone offset, the tram-stop,
 //   toggle the backlight, or even change the remote URL being polled.
+//
+//   The HTTP-server also allows changing the display-mode too.
 //
 //   The user-selectable-changes will be persisted to flash memory, so
 //   they survive reboots.
@@ -605,12 +606,12 @@ void loop()
             {
             case DATE:
                 if (strlen(temp_end_point) > 0)
-                    g_state = TEMPERATURE;
+                    g_temp_date = TEMPERATURE;
 
                 break;
 
             case TEMPERATURE:
-                g_state = DATE;
+                g_temp_date = DATE;
                 break;
 
             }
