@@ -615,9 +615,10 @@ void loop()
                 break;
 
             }
+
+            last_change = millis();
         }
 
-        last_change = millis();
     }
 
 
@@ -1213,7 +1214,7 @@ void serveHTML(WiFiClient client)
         break;
     }
 
-    client.println("<p><a href=\"/?mode=date\">Show date</a>,  <a href=\"/?mode=temp\">Show temperature</a>, alternate <a href=\"?mode=date_temp\">between date and temperature</a>.</p>");
+    client.println("<p>Show <a href=\"/?mode=date\">date</a>, <a href=\"/?mode=temp\">temperature</a>, or alternate <a href=\"/?mode=dt\">between both</a>.</p>");
     client.println("</div>");
     client.println("<div class=\"col-md-4\"></div>");
     client.println("</div>");
@@ -1548,7 +1549,7 @@ void processHTTPRequest(WiFiClient client)
             g_state = TEMPERATURE;
         }
 
-        if (strcmp(mode, "date_temp") == 0)
+        if (strcmp(mode, "dt") == 0)
         {
             g_state = DATE_OR_TEMP;
         }
