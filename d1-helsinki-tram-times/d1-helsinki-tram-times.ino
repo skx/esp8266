@@ -35,7 +35,12 @@
 //   Because the Helsinki Tram API is a complex GraphQL-beast we're getting
 //   data via a simple helper:
 //
-//       https://steve.fi/Helsinki/Tram-API/
+//       https://api.steve.fi/Helsinki-Transport/
+//
+//   We use a similar site to get the temperature, if that is selected as
+//   a display mode (via the web-UI):
+//
+//       https://api.steve.fi/Helsinki-Temperature/
 //
 //
 //  Optional Button

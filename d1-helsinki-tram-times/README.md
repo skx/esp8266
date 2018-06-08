@@ -40,7 +40,7 @@ to submit the new ID.
 The script by default parses, and displays, a simple CSV file which is
 hosted remotely.  By default that is:
 
-     https://steve.fi/Helsinki/Tram-API/api.cgi?id=__ID__
+     https://api.steve.fi/Helsinki-Transport/data/__ID__
 
 You can use your browser to replace that end-point with one of your
 own choosing - which means that you can host it yourself, and write
