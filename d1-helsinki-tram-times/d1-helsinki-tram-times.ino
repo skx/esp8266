@@ -971,7 +971,7 @@ void fetch_temperature()
 
             // Update `g_temp` with the returned temperature,
             // and the degree-symbol.
-            snprintf(g_temp,sizeof(g_temp)-1,"%s%s", body.c_str(), deg );
+            snprintf(g_temp, sizeof(g_temp) - 1, "%s%s", body.c_str(), deg);
         }
         else
         {
