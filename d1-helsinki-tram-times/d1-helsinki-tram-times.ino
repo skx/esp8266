@@ -163,7 +163,7 @@ void on_short_click();
 void on_long_click();
 void on_double_click();
 void processHTTPRequest(WiFiClient client);
-
+void set_display_mode( const char *mode);
 
 //
 // NTP client, and UDP socket it uses.
@@ -339,6 +339,13 @@ void setup()
     if (tz_str.length() > 0)
         time_zone_offset = tz_str.toInt();
 
+
+    //
+    // Load our display-mode, if we can
+    //
+    String md = read_file( "/display.mode" );
+    if ( md.length() > 0 )
+        set_display_mode( md.c_str());
 
     //
     // initialize the LCD
@@ -748,6 +755,34 @@ void loop()
     delay(20);
 }
 
+//
+// Set the display-mode appropriately, given a string describing
+// the desired state.
+// This function might be called as a result of a HTTP-POST, or
+// by reading the mode on-startup.
+//
+void set_display_mode( const char *mode)
+{
+    if (strcmp(mode, "date") == 0)
+    {
+        g_state = DATE;
+    }
+
+    if (strcmp(mode, "temp") == 0)
+    {
+        g_state = TEMPERATURE;
+    }
+
+    if (strcmp(mode, "dt") == 0)
+    {
+        g_state = DATE_OR_TEMP;
+    }
+
+    if (strcmp(mode, "msg") == 0)
+    {
+        g_state = MESSAGE;
+    }
+}
 
 //
 // We bind our button such that short-clicks, long-clicks,
@@ -1499,26 +1534,11 @@ void processHTTPRequest(WiFiClient client)
 
     if (mode != NULL)
     {
-        if (strcmp(mode, "date") == 0)
-        {
-            g_state = DATE;
-        }
+        // Save the updated value to flash.
+        write_file("/display.mode", mode);
 
-        if (strcmp(mode, "temp") == 0)
-        {
-            g_state = TEMPERATURE;
-        }
-
-        if (strcmp(mode, "dt") == 0)
-        {
-            g_state = DATE_OR_TEMP;
-        }
-
-
-        if (strcmp(mode, "msg") == 0)
-        {
-            g_state = MESSAGE;
-        }
+        // Now make it take effect.
+        set_display_mode( mode );
 
         // We might have a message to go along with the mode
         char *msg = url.param("msg_txt");
