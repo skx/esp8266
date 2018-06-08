@@ -221,7 +221,7 @@ char g_temp[10] = {'\0'};
 //
 // Our current message, if any, which has been set by a HTTP-client
 //
-char g_msg[32] = { '\0' };
+char g_msg[128] = { '\0' };
 
 //
 // If we're to swap between date + temperature then store the current
@@ -555,6 +555,12 @@ void loop()
     static long last_change = millis();
 
     //
+    // Scroll-offset for the display of long message.
+    //
+    static int msg_offset = 0;
+
+
+    //
     // Handle any pending over the air updates.
     //
     ArduinoOTA.handle();
@@ -578,15 +584,13 @@ void loop()
     //
     // Get the current time.
     //
-    // We save this so that we can test if we need to update the
-    // tram-time, which we do every two minutes.
-    //
+    // We save this, so that we can trigger actions such as updating
+    // the departure-data, and reloading the temperature data.
     //
     int hour = timeClient.getHours();
     int min  = timeClient.getMinutes();
     int sec  = timeClient.getSeconds();
     int year = timeClient.getYear();
-
     String d_name = timeClient.getWeekDay();
     String m_name = timeClient.getMonth();
     int day = timeClient.getDayOfMonth();
@@ -604,8 +608,8 @@ void loop()
     //
     // Every half hour we'll update the temperature.
     //
-    // Or initially if it is empty - but we don't need to bother
-    // if we're not in a mode where this is visible.
+    // Or initially if it is empty.  Note that we don't bother unless
+    // we're in a mode where the temperature might be visible.
     //
     if (g_state == TEMPERATURE || g_state == DATE_OR_TEMP)
         if ((strlen(g_temp) == 0) || ((min % 30 == 0) && (sec == 0)))
@@ -641,7 +645,6 @@ void loop()
 
             last_change = millis();
         }
-
     }
 
 
@@ -684,7 +687,39 @@ void loop()
         break;
 
     case MESSAGE:
-        snprintf(screen[0], NUM_COLS, "%s", g_msg);
+
+        // Drawing a fixed message.  There are two cases, where
+        // the text is "short" and fits, and when the text must be
+        // scrolled.
+        int len = strlen(g_msg);
+
+        if (len < NUM_COLS)
+        {
+            snprintf(screen[0], NUM_COLS - 1, "%s", g_msg);
+        }
+        else
+        {
+
+            // Draw the message.
+            memset(screen[0], '\0', NUM_COLS);
+            snprintf(screen[0], NUM_COLS - 1, "%s", g_msg + msg_offset);
+
+            // Ensure that we absolutely, definitely, null-terminate it.
+            screen[0][NUM_COLS - 1] = '\0';
+
+            // Bump the offset for next time.
+            if ((millis() - last_change) > 333)
+            {
+                msg_offset += 1;
+
+                // but don't walk off the end of the string.
+                if (msg_offset >= len)
+                    msg_offset = 0;
+
+                last_change = millis();
+            }
+        }
+
         break;
     }
 
