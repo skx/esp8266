@@ -163,7 +163,7 @@ void on_short_click();
 void on_long_click();
 void on_double_click();
 void processHTTPRequest(WiFiClient client);
-void set_display_mode( const char *mode);
+void set_display_mode(const char *mode);
 
 //
 // NTP client, and UDP socket it uses.
@@ -343,16 +343,19 @@ void setup()
     //
     // Load our display-mode, if we can
     //
-    String md = read_file( "/display.mode" );
-    if ( md.length() > 0 )
-        set_display_mode( md.c_str());
+    String md = read_file("/display.mode");
+
+    if (md.length() > 0)
+        set_display_mode(md.c_str());
 
     //
     // Load our message, if we can.
     //
-    String msg = read_file( "/text.msg" );
-    if ( msg.length() > 0 ) {
-        strncpy(g_msg, msg.c_str(), sizeof(g_msg)-1);
+    String msg = read_file("/text.msg");
+
+    if (msg.length() > 0)
+    {
+        strncpy(g_msg, msg.c_str(), sizeof(g_msg) - 1);
     }
 
     //
@@ -769,7 +772,7 @@ void loop()
 // This function might be called as a result of a HTTP-POST, or
 // by reading the mode on-startup.
 //
-void set_display_mode( const char *mode)
+void set_display_mode(const char *mode)
 {
     if (strcmp(mode, "date") == 0)
     {
@@ -1309,20 +1312,21 @@ void serveHTML(WiFiClient client)
 
 #ifdef DEBUG
     client.print("<p>Debugging logs:</p><blockquote>");
-    client.println( "<table class=\"table table-striped table-hover table-condensed table-bordered\">");
+    client.println("<table class=\"table table-striped table-hover table-condensed table-bordered\">");
 
     for (int i = 0; i < DEBUG_MAX; i++)
     {
         if (debug_logs[i] != "")
         {
             client.print("<tr><td>");
-            client.print( i );
+            client.print(i);
             client.print("</td><td>");
             client.print(debug_logs[i]);
             client.print("</td></tr>");
         }
     }
-    client.println( "</table>");
+
+    client.println("</table>");
 
     client.println("</blockquote>\n");
 #endif
@@ -1546,7 +1550,7 @@ void processHTTPRequest(WiFiClient client)
         write_file("/display.mode", mode);
 
         // Now make it take effect.
-        set_display_mode( mode );
+        set_display_mode(mode);
 
         // We might have a message to go along with the mode
         char *msg = url.param("msg_txt");
@@ -1557,11 +1561,12 @@ void processHTTPRequest(WiFiClient client)
             memset(g_msg, '\0', sizeof(g_msg));
 
             // If the message does not contain "#" then save it.
-            if (strchr(msg, '#') == NULL) {
+            if (strchr(msg, '#') == NULL)
+            {
                 strncpy(g_msg, msg, sizeof(g_msg) - 1);
 
                 // Save the message
-                write_file( "/text.msg", msg );
+                write_file("/text.msg", msg);
             }
         }
 
