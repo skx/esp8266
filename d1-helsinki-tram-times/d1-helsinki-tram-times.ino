@@ -79,13 +79,13 @@
 //
 // The string `__ID__` in this URL will be replaced by the ID of the stop.
 //
-#define DEFAULT_API_ENDPOINT "https://steve.fi/Helsinki/Tram-API/api.cgi?id=__ID__"
+#define DEFAULT_API_ENDPOINT "https://api.steve.fi/Helsinki-Transport/data/__ID__"
 
 
 //
 // The weather API URL
 //
-#define DEFAULT_WEATHER_ENDPOINT "http://api.wunderground.com/api/4902569e6db0130a/conditions/lang:en/q/FI/pws:IHELSINK114.json"
+#define DEFAULT_WEATHER_ENDPOINT "https://api.steve.fi/Helsinki-Temperature/data/"
 
 
 //
@@ -934,43 +934,6 @@ void update_tram_times(const char *txt)
 }
 
 
-// Given the text of a HTTP-response from our weather API
-// update `g_temp` to have the current temperature.
-void update_temp(const char *txt)
-{
-    char* pch = NULL;
-
-    int line = 1;
-    pch = strtok((char *)txt, "\r\n");
-
-    while (pch != NULL)
-    {
-        if (strstr(pch, "\"temp_c\":") != NULL)
-        {
-            char *colon = strchr(pch, ':');
-
-            // Copy the value
-            strcpy(g_temp, colon + 1);
-
-            // remove any ","
-            for (int i = 0; i < strlen(g_temp); i++)
-            {
-                if (g_temp[i] == ',')
-                {
-                    g_temp[i] = '\0';
-                }
-            }
-
-            // degree, C, NULL
-            char buf[3] = { 0xDF, 'C', '\0' };
-            strcat(g_temp, buf);
-        }
-
-        pch = strtok(NULL, "\r\n");
-    }
-}
-
-
 //
 // Call a remote HTTP-service to get the current temperature.
 //
@@ -1000,7 +963,15 @@ void fetch_temperature()
 
         if (body.length() > 0)
         {
-            update_temp(body.c_str());
+            // degree, C, NULL
+            char deg[3] = { 0xDF, 'C', '\0' };
+
+            // Remove the any newline(s) that might be present.
+            body.trim();
+
+            // Update `g_temp` with the returned temperature,
+            // and the degree-symbol.
+            snprintf(g_temp,sizeof(g_temp)-1,"%s%s", body.c_str(), deg );
         }
         else
         {
