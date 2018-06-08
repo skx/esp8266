@@ -88,13 +88,13 @@
 
 
 //
-// The weather API URL
+// The temperature API URL
 //
 #define DEFAULT_WEATHER_ENDPOINT "https://api.steve.fi/Helsinki-Temperature/data/"
 
 
 //
-// The default tram stop to monitor.
+// The default stop to monitor.
 //
 #define DEFAULT_TRAM_STOP "1160404"
 
@@ -876,11 +876,6 @@ void update_tram_times(const char *txt)
                 pch += 1;
 
             //
-            // Show what we're operating upon
-            //
-            DEBUG_LOG("LINE: '%s'\n", pch);
-
-            //
             // Look for the first comma, which seperates
             // the tram/bus-number and the time.
             //
@@ -925,9 +920,6 @@ void update_tram_times(const char *txt)
 
             }
 
-            // Show what we generated
-            DEBUG_LOG("Generated line %02d is '%s'\n", line, screen[line]);
-
             //
             // Bump to the next display-line
             //
@@ -952,6 +944,7 @@ void fetch_temperature()
     //
     // Make our remote call.
     //
+    DEBUG_LOG("Fetching temperature-data from %s\n", temp_end_point);
     UrlFetcher client(temp_end_point);
 
     //
@@ -980,11 +973,14 @@ void fetch_temperature()
         }
         else
         {
+            DEBUG_LOG("Empty body received.\n");
             strcpy(g_temp, "TFAIL1");
         }
     }
     else
     {
+        DEBUG_LOG("HTTP-Request failed, status-Code was %03d\n", code);
+        DEBUG_LOG("Status line read: '%s'\n", client.status());
         snprintf(g_temp, sizeof(g_temp) - 1, "TFAIL%d", code);
     }
 }
@@ -1013,7 +1009,7 @@ void fetch_tram_times()
     //
     // Show what we're going to do.
     //
-    DEBUG_LOG("Fetching URL contents: %s\n", url.c_str());
+    DEBUG_LOG("Fetching tram-data from %s\n", url.c_str());
 
     //
     // Fetch the contents of the remote URL.
@@ -1049,7 +1045,7 @@ void fetch_tram_times()
         //
         // Log the status-code
         //
-        DEBUG_LOG("HTTP-Request failed, status-Code was %03d\n", code);
+        DEBUG_LOG("HTTP-Request failed, status-code was %03d\n", code);
         strncpy(screen[1], "HTTP failure", NUM_COLS - 1);
 
         //
@@ -1085,37 +1081,54 @@ void serveHTML(WiFiClient client)
     client.println("Content-Type: text/html");
     client.println("");
 
+
     client.println("<!DOCTYPE html>");
     client.println("<html lang=\"en\">");
-    client.println("<head>");
-    client.println("<title>Tram Times</title>");
-    client.println("<meta charset=\"utf-8\">");
-    client.println("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">");
-    client.println("<link href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css\" rel=\"stylesheet\" integrity=\"sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u\" crossorigin=\"anonymous\">");
-    client.println("<script src=\"https://code.jquery.com/jquery-1.12.4.min.js\" integrity=\"sha256-Qw82+bXyGq6MydymqBxNPYTaUXXq7c8v3CwiYwLLNXU=\" crossorigin=\"anonymous\"></script>");
-    client.println("<script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js\" integrity=\"sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa\" crossorigin=\"anonymous\"></script>");
-    client.println("</head>");
-    client.println("<body>");
-    client.println("<nav id=\"nav\" class = \"navbar navbar-default\" style=\"padding-left:50px; padding-right:50px;\">");
-    client.println("<div class = \"navbar-header\">");
-    client.println("<h1 class=\"banner\"><a href=\"/\">Tram Times</a> - <small>by Steve</small></h1>");
-    client.println("</div>");
-    client.println("<ul class=\"nav navbar-nav navbar-right\">");
-    client.println("<li><a href=\"https://steve.fi/Hardware/\">Steve's Projects</a></li>");
-    client.println("</ul>");
-    client.println("</nav>");
-    client.println("<div class=\"container-fluid\">");
+    client.println("  <head>");
+    client.println("    <title>Tram Times</title>");
+    client.println("    <meta charset=\"utf-8\">");
+    client.println("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+    client.println("    <link rel=\"stylesheet\" href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css\">");
+    client.println("    <script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js\"></script>");
+    client.println("    <script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js\"></script>");
+    client.println("    <style>");
+    client.println("     blockquote { border-left: 0 }");
+    client.println("     .underline {width:100%; border-bottom: 1px solid grey;}");
+    client.println("    </style>");
+    client.println("    <script>");
+    client.println("     $(function(){");
+    client.println("       var hash = window.location.hash;");
+    client.println("       hash && $('ul.nav a[href=\"' + hash + '\"]').tab('show');");
+    client.println("");
+    client.println("       $('.nav-tabs a').click(function (e) {");
+    client.println("         $(this).tab('show');");
+    client.println("         var scrollmem = $('body').scrollTop() || $('html').scrollTop();");
+    client.println("         window.location.hash = this.hash;");
+    client.println("         $('html,body').scrollTop(scrollmem);");
+    client.println("       });");
+    client.println("       $(\"#date\").click(function() {$(\"#msg_txt\").prop(\"disabled\", true);});");
+    client.println("       $(\"#temp\").click(function() {$(\"#msg_txt\").prop(\"disabled\", true);});");
+    client.println("       $(\"#dt\").click(function() {$(\"#msg_txt\").prop(\"disabled\", true);});");
+    client.println("       $(\"#msg\").click(function() {$(\"#msg_txt\").prop(\"disabled\", false);});");
+    client.println("");
+    client.println("     });");
+    client.println("    </script>");
+    client.println("  </head>");
+    client.println("  <body>");
+    client.println("    <nav id=\"nav\" class=\"navbar navbar-default\" style=\"padding-left:50px; padding-right:50px;\">");
+    client.println("      <div class=\"navbar-header\">");
+    client.println("        <h1 class=\"banner\"><a href=\"/\">Tram Times</a> - <small>by Steve</small></h1>");
+    client.println("      </div>");
+    client.println("      <ul class=\"nav navbar-nav navbar-right\">");
+    client.println("        <li><a href=\"https://steve.fi/Hardware/\">Steve's Projects</a></li>");
+    client.println("      </ul>");
+    client.println("    </nav>");
+    client.println("    <div class=\"container\">");
+    client.println("      <h1 class=\"underline\">Tram Times</h1>");
+    client.println("      <p>&nbsp;</p>");
+    client.println("      <blockquote>");
+    client.println("        <table class=\"table table-striped table-hover table-condensed table-bordered\">");
 
-    // Start of body
-    // Row
-    client.println("<div class=\"row\">");
-    client.println("<div class=\"col-md-3\"></div>");
-    client.println("<div class=\"col-md-9\"><h1>Tram Times</h1><p>&nbsp;</p></div>");
-    client.println("</div>");
-    client.println("<div class=\"row\">");
-    client.println("<div class=\"col-md-4\"></div>");
-    client.println("<div class=\"col-md-4\">");
-    client.println("<table class=\"table table-striped table-hover table-condensed table-bordered\">");
 
     // Now show the calculated tram-times
     for (int i = 0; i < NUM_ROWS; i++)
@@ -1137,175 +1150,142 @@ void serveHTML(WiFiClient client)
         client.print("</code></td></tr>");
     }
 
-    client.println("</table>");
-    client.println("</div>");
-    client.println("<div class=\"col-md-4\"></div>");
-    client.println("</div>");
-
-    // Row
-    client.println("<div class=\"row\">");
-    client.println("<div class=\"col-md-3\"></div>");
-    client.println("<div class=\"col-md-9\"> <h2>Backlight</h2></div>");
-    client.println("</div>");
-    client.println("<div class=\"row\">");
-    client.println("<div class=\"col-md-4\"></div>");
-    client.println("<div class=\"col-md-4\">");
+    client.println("          </table>");
+    client.println("      </blockquote>");
+    client.println("      <h2 class=\"underline\">Configuration</h2>");
+    client.println("      <p>&nbsp;</p>");
+    client.println("      <ul class=\"nav nav-tabs\">");
+    client.println("        <li class=\"active\"><a data-toggle=\"tab\" href=\"#general\">General</a></li>");
+    client.println("        <li><a data-toggle=\"tab\" href=\"#display\">Display</a></li>");
+    client.println("        <li><a data-toggle=\"tab\" href=\"#config\">Configuration</a></li>");
+    client.println("        <li><a data-toggle=\"tab\" href=\"#debug\">Debug</a></li>");
+    client.println("      </ul>");
+    client.println("      <div class=\"tab-content\">");
+    client.println("        <div id=\"general\" class=\"tab-pane fade in active\">");
+    client.println("          <blockquote>");
+    client.println("            <p>&nbsp;</p>");
+    client.println("            <table  class=\"table table-striped table-hover table-condensed table-bordered\">");
+    client.println("              <tr><td><b>Backlight</b></td><td>");
 
     // Showing the state.
     if (backlight)
-        client.println("<p>Backlight is ON, <a href=\"/?backlight=off\">turn off</a>.</p>");
+        client.println("<p>On, <a href=\"/?backlight=off\">turn off</a>.</p>");
     else
-        client.println("<p>Backlight OFF, <a href=\"/?backlight=on\">turn on</a>.</p>");
+        client.println("<p>Off, <a href=\"/?backlight=on\">turn on</a>.</p>");
 
-    client.println("</div>");
-    client.println("<div class=\"col-md-4\"></div>");
-    client.println("</div>");
+    client.println("              </td></tr>");
+    client.println("              <tr><td><b>Timezone</b></td>");
+    client.print("                <td><form action=\"/\" method=\"GET\"><input type=\"text\" name=\"tz\" value=\"");
 
+    if (time_zone_offset > 0)
+        client.print("+");
 
-    // Row
-    client.println("<div class=\"row\">");
-    client.println("<div class=\"col-md-3\"></div>");
-    client.println("<div class=\"col-md-9\"> <h2>Display Mode</h2></div>");
-    client.println("</div>");
-    client.println("<div class=\"row\">");
-    client.println("<div class=\"col-md-4\"></div>");
-    client.println("<div class=\"col-md-4\">");
+    if (time_zone_offset < 0)
+        client.print("-");
 
-    switch (g_state)
+    client.print(time_zone_offset);
+
+    client.println("\"><input type=\"submit\" value=\"Update\"></form></td>");
+    client.println("              </tr>");
+    client.println("            </table>");
+    client.println("          </blockquote>");
+    client.println("        </div>");
+    client.println("        <div id=\"display\" class=\"tab-pane fade\">");
+    client.println("          <p>&nbsp;</p>");
+    client.println("          <blockquote>");
+    client.println("            <form action=\"/\" method=\"GET\">");
+
+    if (g_state == DATE)
     {
-    case DATE:
-        client.println("<p>Showing time & date.</p>");
-        break;
-
-    case TEMPERATURE:
-        client.println("<p>Showing time & temperature.</p>");
-        break;
-
-    case DATE_OR_TEMP:
-        client.println("<p>Showing time, and alternating between date &amp; temperature.</p>");
-        break;
-
-    case MESSAGE:
-        client.println("<p>Showing a fixed message.</p>");
-        break;
+        client.println("              <p><input name=\"mode\" id=\"date\" value=\"date\" type=\"radio\" checked=\"checked\">Show date</p>");
+    }
+    else
+    {
+        client.println("              <p><input name=\"mode\" id=\"date\" value=\"date\" type=\"radio\">Show date</p>");
     }
 
-    client.println("<p>Show <a href=\"/?mode=date\">date</a>, <a href=\"/?mode=temp\">temperature</a>, or alternate <a href=\"/?mode=dt\">between both</a>.</p>");
-    client.println("</div>");
-    client.println("<div class=\"col-md-4\"></div>");
-    client.println("</div>");
+    if (g_state == TEMPERATURE)
+    {
+        client.println("              <p><input name=\"mode\" id=\"temp\" value=\"temp\" type=\"radio\" checked=\"checked\">Show temperature</p>");
+    }
+    else
+    {
+        client.println("              <p><input name=\"mode\" id=\"temp\" value=\"temp\" type=\"radio\">Show temperature</p>");
+    }
 
-    // Row
-    client.println("<div class=\"row\">");
-    client.println("<div class=\"col-md-3\"></div>");
-    client.println("<div class=\"col-md-9\"> <h2>Change Tram Stop</h2></div>");
-    client.println("</div>");
-    client.println("<div class=\"row\">");
-    client.println("<div class=\"col-md-4\"></div>");
-    client.println("<div class=\"col-md-4\">");
-    client.print("<p>You are currently monitoring the tram-stop with ID <a href=\"https://beta.reittiopas.fi/pysakit/HSL:");
+    if (g_state == DATE_OR_TEMP)
+    {
+        client.println("              <p><input name=\"mode\" id=\"dt\" value=\"dt\" type=\"radio\" checked=\"checked\">Alternate date &amp; temperature</p>");
+    }
+    else
+    {
+        client.println("              <p><input name=\"mode\" id=\"dt\" value=\"dt\" type=\"radio\">Alternate date &amp; temperature</p>");
+    }
+
+    if (g_state == MESSAGE)
+    {
+        client.print("              <p><input name=\"mode\" id=\"msg\" value=\"msg\" type=\"radio\" checked=\"checked\">Show a message - <input type=\"text\" id=\"msg_txt\" name=\"msg_txt\" value=\"");
+        client.print(g_msg);
+        client.print("\"></p>");
+    }
+    else
+    {
+        client.print("              <p><input name=\"mode\" id=\"msg\" value=\"msg\" type=\"radio\" >Show a message - <input type=\"text\" id=\"msg_txt\" name=\"msg_txt\" value=\"");
+        client.print(g_msg);
+        client.print("\" disabled></p>");
+    }
+
+    client.println("              <p><input type=\"submit\" value=\"Update\"></p>");
+    client.println("            </form>");
+    client.println("          </blockquote>");
+    client.println("        </div>");
+    client.println("        <div id=\"config\" class=\"tab-pane fade\">");
+    client.println("          <p>&nbsp;</p>");
+    client.println("          <blockquote>");
+    client.println("            <table class=\"table table-striped table-hover table-condensed table-bordered\">");
+    client.println("              <tr><td><b>Tram Stop</b></td>");
+    client.print("                <td><form action=\"/\" method=\"GET\"><input type=\"text\" name=\"stop\" value=\"");
     client.print(tram_stop);
-    client.print("\">");
+    client.print("\"><input type=\"submit\" value=\"Update\"></form> <a href=\"https://beta.reittiopas.fi/pysakit/HSL:");
     client.print(tram_stop);
-    client.print("</a>, but you can change that:</p>");
-    client.print("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"stop\" value=\"");
-    client.print(tram_stop);
-    client.print("\"><input type=\"submit\" value=\"Update\"></form>");
-    client.println("</div>");
-    client.println("<div class=\"col-md-4\"></div>");
-    client.println("</div>");
-
-    // Row
-    client.println("<div class=\"row\">");
-    client.println("<div class=\"col-md-3\"></div>");
-    client.println("<div class=\"col-md-9\"> <h2>Change Time Zone</h2></div>");
-    client.println("</div>");
-    client.println("<div class=\"row\">");
-    client.println("<div class=\"col-md-4\"></div>");
-    client.println("<div class=\"col-md-4\">");
-    client.print("<p>The time zone you're configured is GMT ");
-
-    if (time_zone_offset > 0)
-        client.print("+");
-
-    if (time_zone_offset < 0)
-        client.print("-");
-
-    client.print(time_zone_offset);
-    client.print(" but you can change that:</p>");
-    client.print("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"tz\" value=\"");
-
-    if (time_zone_offset > 0)
-        client.print("+");
-
-    if (time_zone_offset < 0)
-        client.print("-");
-
-    client.print(time_zone_offset);
-    client.println("\"><input type=\"submit\" value=\"Update\"></form>");
-    client.println("</div>");
-    client.println("<div class=\"col-md-4\"></div>");
-    client.println("</div>");
-
-
-    // Row
-    client.println("<div class=\"row\">");
-    client.println("<div class=\"col-md-3\"></div>");
-    client.println("<div class=\"col-md-9\"> <h2>Change API End-Point</h2></div>");
-    client.println("</div>");
-    client.println("<div class=\"row\">");
-    client.println("<div class=\"col-md-4\"></div>");
-    client.println("<div class=\"col-md-4\">");
-    client.print("<p>This device works by polling a remote API, to fetch tram-data.  You can change the end-point in the form below:</p>");
-    client.print("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"api\" size=\"125\" value=\"");
+    client.print("\">View on map</td></tr>");
+    client.println("                  <tr><td><b>Tram API</b></td>");
+    client.print("                    <td><form action=\"/\" method=\"GET\"><input type=\"text\" name=\"api\" size=\"75\" value=\"");
     client.print(api_end_point);
-    client.print("\"><input type=\"submit\" value=\"Update\"></form>");
-    client.println("</div>");
-    client.println("<div class=\"col-md-4\"></div>");
-    client.println("</div>");
-
-    // Row
-    client.println("<div class=\"row\">");
-    client.println("<div class=\"col-md-3\"></div>");
-    client.println("<div class=\"col-md-9\"> <h2>Change Temperature End-Point</h2></div>");
-    client.println("</div>");
-    client.println("<div class=\"row\">");
-    client.println("<div class=\"col-md-4\"></div>");
-    client.println("<div class=\"col-md-4\">");
-    client.print("<p>This device can show the temperature, which is retrieved from a remote API.  You can change the end-point in the form below:</p>");
-    client.print("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"temp\" size=\"125\" value=\"");
+    client.println("\"><input type=\"submit\" value=\"Update\"></form></td></tr>");
+    client.println("                  <tr><td><b>Temperature API</b></td>");
+    client.print("                    <td><form action=\"/\" method=\"GET\"><input type=\"text\" name=\"temp\" size=\"75\" value=\"");
     client.print(temp_end_point);
-    client.print("\"><input type=\"submit\" value=\"Update\"></form>");
-    client.println("</div>");
-    client.println("<div class=\"col-md-4\"></div>");
-    client.println("</div>");
+    client.println("\"><input type=\"submit\" value=\"Update\"></form></td></tr>");
+    client.println("            </table>");
+    client.println("          </blockquote>");
+    client.println("        </div>");
+    client.println("        <div id=\"debug\" class=\"tab-pane fade\">");
+    client.println("          <p>&nbsp;</p>");
+    client.println("          <blockquote>");
 
+#ifdef DEBUG
+    client.print("<p>Debugging logs:</p><blockquote>");
+    client.println( "<table class=\"table table-striped table-hover table-condensed table-bordered\">");
 
-    // Row
-    client.println("<div class=\"row\">");
-    client.println("<div class=\"col-md-3\"></div>");
-    client.println("<div class=\"col-md-9\"> <h2>Set Message</h2></div>");
-    client.println("</div>");
-    client.println("<div class=\"row\">");
-    client.println("<div class=\"col-md-4\"></div>");
-    client.println("<div class=\"col-md-4\">");
-    client.print("<p>If you wish you can display a message to viewers, instead of the date/time/temperature.  Enter <code>#</code> to remove the message.</p>");
-    client.print("<form action=\"/\" method=\"GET\"><input type=\"text\" name=\"msg\" size=\"125\" value=\"");
-    client.print(g_msg);
-    client.print("\"><input type=\"submit\" value=\"Update\"></form>");
-    client.println("</div>");
-    client.println("<div class=\"col-md-4\"></div>");
-    client.println("</div>");
+    for (int i = 0; i < DEBUG_MAX; i++)
+    {
+        if (debug_logs[i] != "")
+        {
+            client.print("<tr><td>");
+            client.print( i );
+            client.print("</td><td>");
+            client.print(debug_logs[i]);
+            client.print("</td></tr>");
+        }
+    }
+    client.println( "</table>");
 
-    // Row
-    client.println("<div class=\"row\">");
-    client.println("<div class=\"col-md-3\"></div>");
-    client.println("<div class=\"col-md-9\"> <h2>Uptime</h2></div>");
-    client.println("</div>");
-    client.println("<div class=\"row\">");
-    client.println("<div class=\"col-md-4\"></div>");
-    client.println("<div class=\"col-md-4\">");
-    client.print("<p>");
+    client.println("</blockquote>\n");
+#endif
+
+    client.println("            <p>Uptime:</p><blockquote></p>");
+
 
     long currentmillis = millis();
 
@@ -1337,17 +1317,17 @@ void serveHTML(WiFiClient client)
     client.print(" hours, ");
     client.print(mins);
     client.print(" minutes, ");
-    client.println(secs);
+    client.print(secs);
     client.println(" seconds.");
 
-    client.print("</p>");
-    client.println("</div>");
-    client.println("<div class=\"col-md-4\"></div>");
-    client.println("</div>");
+    client.print("</p></blockquote>");
 
-    // End of body
-    client.println("</div>");
-    client.println("</body>");
+
+    client.println("          </blockquote>");
+    client.println("        </div>");
+    client.println("      </div>");
+    client.println("    </div>");
+    client.println("  </body>");
     client.println("</html>");
 
 }
@@ -1397,6 +1377,7 @@ String read_file(const char *path)
             result += line[i];
     }
 
+    DEBUG_LOG("Read '%s' from file '%s'\n", result.c_str(), path);
     return (result);
 }
 
@@ -1511,6 +1492,9 @@ void processHTTPRequest(WiFiClient client)
         return;
     }
 
+    //
+    // Does the user want to change the display-mode?
+    //
     char *mode = url.param("mode");
 
     if (mode != NULL)
@@ -1530,6 +1514,27 @@ void processHTTPRequest(WiFiClient client)
             g_state = DATE_OR_TEMP;
         }
 
+
+        if (strcmp(mode, "msg") == 0)
+        {
+            g_state = MESSAGE;
+        }
+
+        // We might have a message to go along with the mode
+        char *msg = url.param("msg_txt");
+
+        if (msg != NULL)
+        {
+            // Clear the old message.
+            memset(g_msg, '\0', sizeof(g_msg));
+
+            // If the message does not contain "#" then
+            // save it.
+            if (strchr(msg, '#') == NULL)
+                strncpy(g_msg, msg, sizeof(g_msg) - 1);
+        }
+
+
         // Redirect to the server-root
         redirectIndex(client);
         return;
@@ -1538,7 +1543,7 @@ void processHTTPRequest(WiFiClient client)
 
 
     //
-    // Does the user want to change the API end-point?
+    // Does the user want to change the tram-API end-point?
     //
     char *api = url.param("api");
 
@@ -1552,35 +1557,6 @@ void processHTTPRequest(WiFiClient client)
 
         // So we've changed the tram ID we should refresh the date.
         fetch_tram_times();
-
-        // Redirect to the server-root
-        redirectIndex(client);
-        return;
-    }
-
-
-    //
-    // Does the user want to display a message?
-    //
-    char *msg = url.param("msg");
-
-    if (msg != NULL)
-    {
-        // Clear the old message.
-        memset(g_msg, '\0', sizeof(g_msg));
-
-        // If the message contains "#" then return
-        // to the date/time display.
-        if (strchr(msg, '#') != NULL)
-        {
-            g_state = DATE;
-        }
-        else
-        {
-            // Otherwise set the message, and the mode
-            strncpy(g_msg, msg, sizeof(g_msg) - 1);
-            g_state = MESSAGE;
-        }
 
         // Redirect to the server-root
         redirectIndex(client);
