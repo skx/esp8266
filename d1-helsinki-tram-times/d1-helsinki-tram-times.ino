@@ -348,6 +348,14 @@ void setup()
         set_display_mode( md.c_str());
 
     //
+    // Load our message, if we can.
+    //
+    String msg = read_file( "/text.msg" );
+    if ( msg.length() > 0 ) {
+        strncpy(g_msg, msg.c_str(), sizeof(g_msg)-1);
+    }
+
+    //
     // initialize the LCD
     //
     lcd.begin();
@@ -1548,10 +1556,13 @@ void processHTTPRequest(WiFiClient client)
             // Clear the old message.
             memset(g_msg, '\0', sizeof(g_msg));
 
-            // If the message does not contain "#" then
-            // save it.
-            if (strchr(msg, '#') == NULL)
+            // If the message does not contain "#" then save it.
+            if (strchr(msg, '#') == NULL) {
                 strncpy(g_msg, msg, sizeof(g_msg) - 1);
+
+                // Save the message
+                write_file( "/text.msg", msg );
+            }
         }
 
 
