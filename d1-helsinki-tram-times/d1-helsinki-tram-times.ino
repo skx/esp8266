@@ -602,13 +602,13 @@ void loop()
         fetch_tram_times();
 
     //
-    // Every hour we'll update the temperature.
+    // Every half hour we'll update the temperature.
     //
     // Or initially if it is empty - but we don't need to bother
     // if we're not in a mode where this is visible.
     //
     if (g_state == TEMPERATURE || g_state == DATE_OR_TEMP)
-        if ((strlen(g_temp) == 0) || ((min == 0) && (sec == 0)))
+        if ((strlen(g_temp) == 0) || ((min % 30 == 0) && (sec == 0)))
             fetch_temperature();
 
 
