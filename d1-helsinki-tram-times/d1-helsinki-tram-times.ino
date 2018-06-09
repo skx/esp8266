@@ -1178,15 +1178,15 @@ void redirectIndex(WiFiClient client)
 //
 // Output a <select> tag, with a list of hours.
 //
-void output_select(WiFiClient client, char *name, bool enabled, int selected )
+void output_select(WiFiClient client, char *name, bool enabled, int selected)
 {
     client.printf("<select id=\"%s\" name=\"%s\" %s>", name, name,
-                  enabled ? "" : "disabled"  );
+                  enabled ? "" : "disabled");
 
     for (int i = 0; i < 24; i++)
     {
         client.printf("<option value=\"%02d\" %s>%02d</option>",
-                      i, selected == i ? "selected=\"selected\"" : "" , i);
+                      i, selected == i ? "selected=\"selected\"" : "", i);
     }
 
     client.println("</select>");
@@ -1309,14 +1309,14 @@ void serveHTML(WiFiClient client)
     client.println("<tr><td><b>Backlight Schedule</b></td><td>");
     client.println("<form action=\"/\" METHOD=\"GET\">");
     client.println("<input type=\"hidden\" name=\"schedule\" value=\"yes\">");
-    client.printf("<p><input type=\"checkbox\" id=\"backlight_schedule\" name=\"backlight_schedule\"%s>Enable scheduling</p>", scheduled ? " checked=\"checked\"" : "" );
+    client.printf("<p><input type=\"checkbox\" id=\"backlight_schedule\" name=\"backlight_schedule\"%s>Enable scheduling</p>", scheduled ? " checked=\"checked\"" : "");
     client.print("<p>Turn on at");
 
-    output_select( client, "bon", scheduled, backlight_on );
+    output_select(client, "bon", scheduled, backlight_on);
 
     client.println(" turn off at ");
 
-    output_select( client, "boff", scheduled, backlight_off );
+    output_select(client, "boff", scheduled, backlight_off);
 
     client.println("<input type=\"submit\" value=\"Update\"></p></form></td></tr>");
 
@@ -1328,10 +1328,11 @@ void serveHTML(WiFiClient client)
     client.println("<blockquote>");
     client.println("<form action=\"/\" method=\"GET\">");
 
-    client.printf("<p><input name=\"mode\" id=\"date\" value=\"date\" type=\"radio\" %s>Show date</p>", g_state == DATE ? " checked=\"checked\"" : "" );
-    client.printf("<p><input name=\"mode\" id=\"temp\" value=\"temp\" type=\"radio\"%s>Show temperature</p>", g_state == TEMPERATURE ? " checked=\"checked\"" : "" );
-    client.printf("<p><input name=\"mode\" id=\"dt\" value=\"dt\" type=\"radio\"%s>Alternate date &amp; temperature</p>", g_state == DATE_OR_TEMP ? " checked=\"checked\"" : "" );
-    client.printf("<p><input name=\"mode\" id=\"msg\" value=\"msg\" type=\"radio\"%s>Show a message - <input type=\"text\" id=\"msg_txt\" name=\"msg_txt\" value=\"%s\" %s></p>", g_state == MESSAGE ? " checked=\"checked\"" : "", g_msg, g_state != MESSAGE ? "disabled" : "" );
+    client.printf("<p><input name=\"mode\" id=\"date\" value=\"date\" type=\"radio\" %s>Show date</p>", g_state == DATE ? " checked=\"checked\"" : "");
+    client.printf("<p><input name=\"mode\" id=\"temp\" value=\"temp\" type=\"radio\"%s>Show temperature</p>", g_state == TEMPERATURE ? " checked=\"checked\"" : "");
+    client.printf("<p><input name=\"mode\" id=\"dt\" value=\"dt\" type=\"radio\"%s>Alternate date &amp; temperature</p>", g_state == DATE_OR_TEMP ? " checked=\"checked\"" : "");
+    client.printf("<p><input name=\"mode\" id=\"msg\" value=\"msg\" type=\"radio\"%s>Show a message - <input type=\"text\" id=\"msg_txt\" name=\"msg_txt\" value=\"%s\" %s></p>",
+                  g_state == MESSAGE ? " checked=\"checked\"" : "", g_msg, g_state != MESSAGE ? "disabled" : "");
 
     client.println("<p><input type=\"submit\" value=\"Update\"></p>");
     client.println("</form>");
@@ -1357,7 +1358,7 @@ void serveHTML(WiFiClient client)
     client.printf("<td><form action=\"/\" method=\"GET\"><input type=\"text\" name=\"stop\" value=\"%s\">", tram_stop);
     client.print("<input type=\"submit\" value=\"Update\"></form>");
     client.printf("<a href=\"https://beta.reittiopas.fi/pysakit/HSL:%s\">View on map</a>", tram_stop);
-    client.println( "</td></tr>");
+    client.println("</td></tr>");
     client.println("<tr><td><b>Tram API</b></td>");
     client.printf("<td><form action=\"/\" method=\"GET\"><input type=\"text\" name=\"api\" size=\"75\" value=\"%s\">", api_end_point);
     client.println("<input type=\"submit\" value=\"Update\"></form></td></tr>");
