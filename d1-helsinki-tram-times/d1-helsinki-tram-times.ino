@@ -6,7 +6,7 @@
 //
 //   The top line of the display will default to showing the current time,
 //   and date.  But it might display a fixed message, or the temperature
-//   too.
+//   instead.
 //
 //   Each additional line of the display will show the departure
 //   of the next tram from the chosen stop.  For example we'd
@@ -269,6 +269,14 @@ LiquidCrystal_I2C lcd(0x27, NUM_COLS, NUM_ROWS);
 //
 bool backlight = true;
 
+//
+// Time for the backlight to go on/off automatically
+//
+// This is set via the user-interface, and is optional.
+//
+int backlight_on = -1;
+int backlight_off = -1;
+
 
 //
 // Setup a new OneButton on pin D8.
@@ -357,6 +365,23 @@ void setup()
     {
         strncpy(g_msg, msg.c_str(), sizeof(g_msg) - 1);
     }
+
+    //
+    // If we have a schedule for the backlight then load
+    // that here too.
+    //
+    // That involves two times; one to go off and one to
+    // go on.
+    //
+    String bon = read_file("/b.on");
+
+    if (bon.length() > 0)
+        backlight_on = atoi(bon.c_str());
+
+    String boff = read_file("/b.off");
+
+    if (boff.length() > 0)
+        backlight_off = atoi(boff.c_str());
 
     //
     // initialize the LCD
@@ -555,7 +580,8 @@ void loop()
     static long last_change = millis();
 
     //
-    // Scroll-offset for the display of long message.
+    // Scroll-offset if we're displaying a fixed message instead of
+    // showing the date/time.
     //
     static int msg_offset = 0;
 
@@ -566,13 +592,12 @@ void loop()
     ArduinoOTA.handle();
 
     //
-    // Resync the clock?
+    // Resync the clock.
     //
     timeClient.update();
 
     //
-    // Process the button - looking for clicks, double-clicks,
-    // and long-clicks
+    // Process our button - looking for clicks, double-clicks, & long-clicks
     //
     button.tick();
 
@@ -606,10 +631,10 @@ void loop()
         fetch_tram_times();
 
     //
-    // Every half hour we'll update the temperature.
+    // Every half hour we'll update the temperature, or initially if empty.
     //
-    // Or initially if it is empty.  Note that we don't bother unless
-    // we're in a mode where the temperature might be visible.
+    // Note that we don't bother unless we're in a mode where the
+    // temperature might be displayed.
     //
     if (g_state == TEMPERATURE || g_state == DATE_OR_TEMP)
         if ((strlen(g_temp) == 0) || ((min % 30 == 0) && (sec == 0)))
@@ -643,13 +668,14 @@ void loop()
 
             }
 
+            // Record the last time we transitioned state.
             last_change = millis();
         }
     }
 
 
     //
-    // Format the first row of the display
+    // Clear the first row of the display.
     //
     memset(screen[0], '\0', NUM_COLS);
 
@@ -760,10 +786,8 @@ void loop()
     //
     if ((min == 0) && (sec == 0))
     {
-        //
-        // Six AM goes on
-        //
-        if (hour == 6)
+        // The time for it to go on.
+        if (backlight_on == hour)
         {
             if (! backlight)
             {
@@ -772,7 +796,8 @@ void loop()
             }
         }
 
-        if (hour == 22)
+        // The time for it to go off
+        if (backlight_off == hour)
         {
             if (backlight)
             {
@@ -1191,6 +1216,8 @@ void serveHTML(WiFiClient client)
     client.println("       $(\"#temp\").click(function() {$(\"#msg_txt\").prop(\"disabled\", true);});");
     client.println("       $(\"#dt\").click(function() {$(\"#msg_txt\").prop(\"disabled\", true);});");
     client.println("       $(\"#msg\").click(function() {$(\"#msg_txt\").prop(\"disabled\", false);});");
+    client.println("$('#backlight_schedule').change(function() {       $(\"#boff\").prop(\"disabled\",!$(this).is(':checked'));       $(\"#bon\").prop(\"disabled\",!$(this).is(':checked')); });");
+
     client.println("");
     client.println("     });");
     client.println("    </script>");
@@ -1255,6 +1282,80 @@ void serveHTML(WiFiClient client)
         client.println("<p>Off, <a href=\"/?backlight=on\">turn on</a>.</p>");
 
     client.println("              </td></tr>");
+
+    //
+    // Is there a schedule setup?
+    //
+    bool scheduled = true;
+
+    if ((backlight_on == -1) && (backlight_off == -1))
+        scheduled = false;
+
+    // Backlight schedule.
+    client.println("              <tr><td><b>Backlight Schedule</b></td><td>");
+    client.println("              <form action=\"/\" METHOD=\"GET\">");
+    client.println("<input type=\"hidden\" name=\"schedule\" value=\"yes\">");
+    client.println("<p><input type=\"checkbox\" id=\"backlight_schedule\" name=\"backlight_schedule\"");
+
+    if (scheduled)
+        client.print("checked=\"checked\"");
+
+    client.print(">Enable scheduling</p> <p>Turn on at");
+    client.print("<select id=\"bon\" name=\"bon\"");
+
+    if (!scheduled)
+        client.print("disabled");
+
+    client.print(">");
+
+    for (int i = 0; i < 24; i++)
+    {
+        char buff[4] = {'\0'};
+        snprintf(buff, sizeof(buff) - 1, "%02d", i);
+        client.print("<option value=\"");
+        client.print(buff);
+        client.print("\"");
+
+        if (backlight_on == i)
+        {
+            client.print(" selected=\"selected\"");
+        }
+
+        client.println(">");
+        client.println(buff);
+        client.println("</option>");
+    }
+
+    client.println("</select>");
+
+    client.println(" turn off at : ");
+    client.print("<select id=\"boff\" name=\"boff\"");
+
+    if (!scheduled)
+        client.print("disabled");
+
+    client.print(">");
+
+    for (int i = 0; i < 24; i++)
+    {
+        char buff[4] = {'\0'};
+        snprintf(buff, sizeof(buff) - 1, "%02d", i);
+        client.print("<option value=\"");
+        client.print(buff);
+        client.print("\"");
+
+        if (backlight_off == i)
+        {
+            client.print("selected=\"selected\"");
+        }
+
+        client.println(">");
+        client.println(buff);
+        client.println("</option>");
+    }
+
+    client.println("</select><input type=\"submit\" value=\"Update\"></p></form></td></tr>");
+
     client.println("              <tr><td><b>Timezone</b></td>");
     client.print("                <td><form action=\"/\" method=\"GET\"><input type=\"text\" name=\"tz\" value=\"");
 
@@ -1612,6 +1713,59 @@ void processHTTPRequest(WiFiClient client)
 
     }
 
+
+    //
+    // Is the user setting up a schedule?
+    //
+    char *schedule = url.param("schedule");
+
+    if (schedule != NULL)
+    {
+        //
+        // OK there might be three parameters:
+        //
+        // bon                -> Time the backlight comes on.
+        // boff               -> Time the backlight goes off.
+        // backlight_schedule -> 1 if enabled.
+        //
+        char *s = url.param("backlight_schedule");
+        char *on = url.param("bon");
+        char *off = url.param("boff");
+
+        // If the checkbox is ticked
+        if ((s != NULL) && (strlen(s) > 0))
+        {
+            // if the on-time is setup
+            if (on != NULL)
+            {
+                // record it, and make it live too.
+                write_file("/b.on", on);
+                backlight_on = atoi(on);
+            }
+
+            // if the off-time is setup
+            if (off != NULL)
+            {
+                // record it, and make it live too.
+                write_file("/b.off", off);
+                backlight_off = atoi(off);
+            }
+        }
+        else
+        {
+            // Prevent the schedule by writing "-1" to the on/off times
+            write_file("/b.on", "-1\n");
+            write_file("/b.off", "-1\n");
+
+            // disable the schedule, if it was previously set.
+            backlight_on = -1;
+            backlight_off = -1;
+        }
+
+        redirectIndex(client);
+        return;
+
+    }
 
     //
     // Does the user want to change the tram-API end-point?
