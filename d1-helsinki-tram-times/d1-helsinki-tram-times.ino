@@ -1176,6 +1176,23 @@ void redirectIndex(WiFiClient client)
 
 
 //
+// Output a <select> tag, with a list of hours.
+//
+void output_select(WiFiClient client, char *name, bool enabled, int selected )
+{
+    client.printf("<select id=\"%s\" name=\"%s\" %s>", name, name,
+                  enabled ? "" : "disabled"  );
+
+    for (int i = 0; i < 24; i++)
+    {
+        client.printf("<option value=\"%02d\" %s>%02d</option>",
+                      i, selected == i ? "selected=\"selected\"" : "" , i);
+    }
+
+    client.println("</select>");
+}
+
+//
 // This is a bit horrid.
 //
 // Serve a HTML-page to any clients who connect, via
@@ -1190,52 +1207,49 @@ void serveHTML(WiFiClient client)
 
     client.println("<!DOCTYPE html>");
     client.println("<html lang=\"en\">");
-    client.println("  <head>");
-    client.println("    <title>Tram Times</title>");
-    client.println("    <meta charset=\"utf-8\">");
-    client.println("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
-    client.println("    <link rel=\"stylesheet\" href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css\">");
-    client.println("    <script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js\"></script>");
-    client.println("    <script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js\"></script>");
-    client.println("    <style>");
-    client.println("     blockquote { border-left: 0 }");
-    client.println("     .underline {width:100%; border-bottom: 1px solid grey;}");
-    client.println("    </style>");
-    client.println("    <script>");
-    client.println("     $(function(){");
-    client.println("       var hash = window.location.hash;");
-    client.println("       hash && $('ul.nav a[href=\"' + hash + '\"]').tab('show');");
-    client.println("");
-    client.println("       $('.nav-tabs a').click(function (e) {");
-    client.println("         $(this).tab('show');");
-    client.println("         var scrollmem = $('body').scrollTop() || $('html').scrollTop();");
-    client.println("         window.location.hash = this.hash;");
-    client.println("         $('html,body').scrollTop(scrollmem);");
-    client.println("       });");
-    client.println("       $(\"#date\").click(function() {$(\"#msg_txt\").prop(\"disabled\", true);});");
-    client.println("       $(\"#temp\").click(function() {$(\"#msg_txt\").prop(\"disabled\", true);});");
-    client.println("       $(\"#dt\").click(function() {$(\"#msg_txt\").prop(\"disabled\", true);});");
-    client.println("       $(\"#msg\").click(function() {$(\"#msg_txt\").prop(\"disabled\", false);});");
+    client.println("<head>");
+    client.println("<title>Tram Times</title>");
+    client.println("<meta charset=\"utf-8\">");
+    client.println("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+    client.println("<link rel=\"stylesheet\" href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css\">");
+    client.println("<script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js\"></script>");
+    client.println("<script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js\"></script>");
+    client.println("<style>");
+    client.println("blockquote { border-left: 0 }");
+    client.println(".underline {width:100%; border-bottom: 1px solid grey;}");
+    client.println("</style>");
+    client.println("<script>");
+    client.println("$(function(){");
+    client.println("var hash = window.location.hash;");
+    client.println("hash && $('ul.nav a[href=\"' + hash + '\"]').tab('show');");
+    client.println("$('.nav-tabs a').click(function (e) {");
+    client.println("$(this).tab('show');");
+    client.println("var scrollmem = $('body').scrollTop() || $('html').scrollTop();");
+    client.println("window.location.hash = this.hash;");
+    client.println("$('html,body').scrollTop(scrollmem);");
+    client.println("});");
+    client.println("$(\"#date\").click(function() {$(\"#msg_txt\").prop(\"disabled\", true);});");
+    client.println("$(\"#temp\").click(function() {$(\"#msg_txt\").prop(\"disabled\", true);});");
+    client.println("$(\"#dt\").click(function() {$(\"#msg_txt\").prop(\"disabled\", true);});");
+    client.println("$(\"#msg\").click(function() {$(\"#msg_txt\").prop(\"disabled\", false);});");
     client.println("$('#backlight_schedule').change(function() {       $(\"#boff\").prop(\"disabled\",!$(this).is(':checked'));       $(\"#bon\").prop(\"disabled\",!$(this).is(':checked')); });");
-
-    client.println("");
-    client.println("     });");
-    client.println("    </script>");
-    client.println("  </head>");
-    client.println("  <body>");
-    client.println("    <nav id=\"nav\" class=\"navbar navbar-default\" style=\"padding-left:50px; padding-right:50px;\">");
-    client.println("      <div class=\"navbar-header\">");
-    client.println("        <h1 class=\"banner\"><a href=\"/\">Tram Times</a> - <small>by Steve</small></h1>");
-    client.println("      </div>");
-    client.println("      <ul class=\"nav navbar-nav navbar-right\">");
-    client.println("        <li><a href=\"https://steve.fi/Hardware/\">Steve's Projects</a></li>");
-    client.println("      </ul>");
-    client.println("    </nav>");
-    client.println("    <div class=\"container\">");
-    client.println("      <h1 class=\"underline\">Tram Times</h1>");
-    client.println("      <p>&nbsp;</p>");
-    client.println("      <blockquote>");
-    client.println("        <table class=\"table table-striped table-hover table-condensed table-bordered\">");
+    client.println("});");
+    client.println("</script>");
+    client.println("</head>");
+    client.println("<body>");
+    client.println("<nav id=\"nav\" class=\"navbar navbar-default\" style=\"padding-left:50px; padding-right:50px;\">");
+    client.println("<div class=\"navbar-header\">");
+    client.println("<h1 class=\"banner\"><a href=\"/\">Tram Times</a> - <small>by Steve</small></h1>");
+    client.println("</div>");
+    client.println("<ul class=\"nav navbar-nav navbar-right\">");
+    client.println("<li><a href=\"https://steve.fi/Hardware/\">Steve's Projects</a></li>");
+    client.println("</ul>");
+    client.println("</nav>");
+    client.println("<div class=\"container\">");
+    client.println("<h1 class=\"underline\">Tram Times</h1>");
+    client.println("<p>&nbsp;</p>");
+    client.println("<blockquote>");
+    client.println("<table class=\"table table-striped table-hover table-condensed table-bordered\">");
 
 
     // Now show the calculated tram-times
@@ -1258,22 +1272,22 @@ void serveHTML(WiFiClient client)
         client.print("</code></td></tr>");
     }
 
-    client.println("          </table>");
-    client.println("      </blockquote>");
-    client.println("      <h2 class=\"underline\">Configuration</h2>");
-    client.println("      <p>&nbsp;</p>");
-    client.println("      <ul class=\"nav nav-tabs\">");
-    client.println("        <li class=\"active\"><a data-toggle=\"tab\" href=\"#backlight\">Backlight</a></li>");
-    client.println("        <li><a data-toggle=\"tab\" href=\"#display\">Display</a></li>");
-    client.println("        <li><a data-toggle=\"tab\" href=\"#config\">Configuration</a></li>");
-    client.println("        <li><a data-toggle=\"tab\" href=\"#debug\">Debug</a></li>");
-    client.println("      </ul>");
-    client.println("      <div class=\"tab-content\">");
-    client.println("        <div id=\"backlight\" class=\"tab-pane fade in active\">");
-    client.println("          <blockquote>");
-    client.println("            <p>&nbsp;</p>");
-    client.println("            <table  class=\"table table-striped table-hover table-condensed table-bordered\">");
-    client.println("              <tr><td><b>Backlight</b></td><td>");
+    client.println("</table>");
+    client.println("</blockquote>");
+    client.println("<h2 class=\"underline\">Configuration</h2>");
+    client.println("<p>&nbsp;</p>");
+    client.println("<ul class=\"nav nav-tabs\">");
+    client.println("<li class=\"active\"><a data-toggle=\"tab\" href=\"#backlight\">Backlight</a></li>");
+    client.println("<li><a data-toggle=\"tab\" href=\"#display\">Display</a></li>");
+    client.println("<li><a data-toggle=\"tab\" href=\"#config\">Configuration</a></li>");
+    client.println("<li><a data-toggle=\"tab\" href=\"#debug\">Debug</a></li>");
+    client.println("</ul>");
+    client.println("<div class=\"tab-content\">");
+    client.println("<div id=\"backlight\" class=\"tab-pane fade in active\">");
+    client.println("<blockquote>");
+    client.println("<p>&nbsp;</p>");
+    client.println("<table class=\"table table-striped table-hover table-condensed table-bordered\">");
+    client.println("<tr><td><b>Backlight</b></td><td>");
 
     // Showing the state.
     if (backlight)
@@ -1281,7 +1295,7 @@ void serveHTML(WiFiClient client)
     else
         client.println("<p>Off, <a href=\"/?backlight=on\">turn on</a>.</p>");
 
-    client.println("              </td></tr>");
+    client.println("</td></tr>");
 
     //
     // Is there a schedule setup?
@@ -1292,128 +1306,43 @@ void serveHTML(WiFiClient client)
         scheduled = false;
 
     // Backlight schedule.
-    client.println("              <tr><td><b>Backlight Schedule</b></td><td>");
-    client.println("              <form action=\"/\" METHOD=\"GET\">");
+    client.println("<tr><td><b>Backlight Schedule</b></td><td>");
+    client.println("<form action=\"/\" METHOD=\"GET\">");
     client.println("<input type=\"hidden\" name=\"schedule\" value=\"yes\">");
-    client.println("<p><input type=\"checkbox\" id=\"backlight_schedule\" name=\"backlight_schedule\"");
+    client.printf("<p><input type=\"checkbox\" id=\"backlight_schedule\" name=\"backlight_schedule\"%s>Enable scheduling</p>", scheduled ? " checked=\"checked\"" : "" );
+    client.print("<p>Turn on at");
 
-    if (scheduled)
-        client.print("checked=\"checked\"");
+    output_select( client, "bon", scheduled, backlight_on );
 
-    client.print(">Enable scheduling</p> <p>Turn on at");
-    client.print("<select id=\"bon\" name=\"bon\"");
+    client.println(" turn off at ");
 
-    if (!scheduled)
-        client.print("disabled");
+    output_select( client, "boff", scheduled, backlight_off );
 
-    client.print(">");
+    client.println("<input type=\"submit\" value=\"Update\"></p></form></td></tr>");
 
-    for (int i = 0; i < 24; i++)
-    {
-        char buff[4] = {'\0'};
-        snprintf(buff, sizeof(buff) - 1, "%02d", i);
-        client.print("<option value=\"");
-        client.print(buff);
-        client.print("\"");
+    client.println("</table>");
+    client.println("</blockquote>");
+    client.println("</div>");
+    client.println("<div id=\"display\" class=\"tab-pane fade\">");
+    client.println("<p>&nbsp;</p>");
+    client.println("<blockquote>");
+    client.println("<form action=\"/\" method=\"GET\">");
 
-        if (backlight_on == i)
-        {
-            client.print(" selected=\"selected\"");
-        }
+    client.printf("<p><input name=\"mode\" id=\"date\" value=\"date\" type=\"radio\" %s>Show date</p>", g_state == DATE ? " checked=\"checked\"" : "" );
+    client.printf("<p><input name=\"mode\" id=\"temp\" value=\"temp\" type=\"radio\"%s>Show temperature</p>", g_state == TEMPERATURE ? " checked=\"checked\"" : "" );
+    client.printf("<p><input name=\"mode\" id=\"dt\" value=\"dt\" type=\"radio\"%s>Alternate date &amp; temperature</p>", g_state == DATE_OR_TEMP ? " checked=\"checked\"" : "" );
+    client.printf("<p><input name=\"mode\" id=\"msg\" value=\"msg\" type=\"radio\"%s>Show a message - <input type=\"text\" id=\"msg_txt\" name=\"msg_txt\" value=\"%s\" %s></p>", g_state == MESSAGE ? " checked=\"checked\"" : "", g_msg, g_state != MESSAGE ? "disabled" : "" );
 
-        client.println(">");
-        client.println(buff);
-        client.println("</option>");
-    }
-
-    client.println("</select>");
-
-    client.println(" turn off at : ");
-    client.print("<select id=\"boff\" name=\"boff\"");
-
-    if (!scheduled)
-        client.print("disabled");
-
-    client.print(">");
-
-    for (int i = 0; i < 24; i++)
-    {
-        char buff[4] = {'\0'};
-        snprintf(buff, sizeof(buff) - 1, "%02d", i);
-        client.print("<option value=\"");
-        client.print(buff);
-        client.print("\"");
-
-        if (backlight_off == i)
-        {
-            client.print("selected=\"selected\"");
-        }
-
-        client.println(">");
-        client.println(buff);
-        client.println("</option>");
-    }
-
-    client.println("</select><input type=\"submit\" value=\"Update\"></p></form></td></tr>");
-
-    client.println("            </table>");
-    client.println("          </blockquote>");
-    client.println("        </div>");
-    client.println("        <div id=\"display\" class=\"tab-pane fade\">");
-    client.println("          <p>&nbsp;</p>");
-    client.println("          <blockquote>");
-    client.println("            <form action=\"/\" method=\"GET\">");
-
-    if (g_state == DATE)
-    {
-        client.println("              <p><input name=\"mode\" id=\"date\" value=\"date\" type=\"radio\" checked=\"checked\">Show date</p>");
-    }
-    else
-    {
-        client.println("              <p><input name=\"mode\" id=\"date\" value=\"date\" type=\"radio\">Show date</p>");
-    }
-
-    if (g_state == TEMPERATURE)
-    {
-        client.println("              <p><input name=\"mode\" id=\"temp\" value=\"temp\" type=\"radio\" checked=\"checked\">Show temperature</p>");
-    }
-    else
-    {
-        client.println("              <p><input name=\"mode\" id=\"temp\" value=\"temp\" type=\"radio\">Show temperature</p>");
-    }
-
-    if (g_state == DATE_OR_TEMP)
-    {
-        client.println("              <p><input name=\"mode\" id=\"dt\" value=\"dt\" type=\"radio\" checked=\"checked\">Alternate date &amp; temperature</p>");
-    }
-    else
-    {
-        client.println("              <p><input name=\"mode\" id=\"dt\" value=\"dt\" type=\"radio\">Alternate date &amp; temperature</p>");
-    }
-
-    if (g_state == MESSAGE)
-    {
-        client.print("              <p><input name=\"mode\" id=\"msg\" value=\"msg\" type=\"radio\" checked=\"checked\">Show a message - <input type=\"text\" id=\"msg_txt\" name=\"msg_txt\" value=\"");
-        client.print(g_msg);
-        client.print("\"></p>");
-    }
-    else
-    {
-        client.print("              <p><input name=\"mode\" id=\"msg\" value=\"msg\" type=\"radio\" >Show a message - <input type=\"text\" id=\"msg_txt\" name=\"msg_txt\" value=\"");
-        client.print(g_msg);
-        client.print("\" disabled></p>");
-    }
-
-    client.println("              <p><input type=\"submit\" value=\"Update\"></p>");
-    client.println("            </form>");
-    client.println("          </blockquote>");
-    client.println("        </div>");
-    client.println("        <div id=\"config\" class=\"tab-pane fade\">");
-    client.println("          <p>&nbsp;</p>");
-    client.println("          <blockquote>");
-    client.println("            <table class=\"table table-striped table-hover table-condensed table-bordered\">");
-    client.println("              <tr><td><b>Timezone</b></td>");
-    client.print("                <td><form action=\"/\" method=\"GET\"><input type=\"text\" name=\"tz\" value=\"");
+    client.println("<p><input type=\"submit\" value=\"Update\"></p>");
+    client.println("</form>");
+    client.println("</blockquote>");
+    client.println("</div>");
+    client.println("<div id=\"config\" class=\"tab-pane fade\">");
+    client.println("<p>&nbsp;</p>");
+    client.println("<blockquote>");
+    client.println("<table class=\"table table-striped table-hover table-condensed table-bordered\">");
+    client.println("<tr><td><b>Timezone</b></td>");
+    client.print("  <td><form action=\"/\" method=\"GET\"><input type=\"text\" name=\"tz\" value=\"");
 
     if (time_zone_offset > 0)
         client.print("+");
@@ -1423,29 +1352,24 @@ void serveHTML(WiFiClient client)
 
     client.print(time_zone_offset);
 
-    client.println("\"><input type=\"submit\" value=\"Update\"></form></td>");
-    client.println("              </tr>");
-
-    client.println("              <tr><td><b>Tram Stop</b></td>");
-    client.print("                <td><form action=\"/\" method=\"GET\"><input type=\"text\" name=\"stop\" value=\"");
-    client.print(tram_stop);
-    client.print("\"><input type=\"submit\" value=\"Update\"></form> <a href=\"https://beta.reittiopas.fi/pysakit/HSL:");
-    client.print(tram_stop);
-    client.print("\">View on map</td></tr>");
-    client.println("                  <tr><td><b>Tram API</b></td>");
-    client.print("                    <td><form action=\"/\" method=\"GET\"><input type=\"text\" name=\"api\" size=\"75\" value=\"");
-    client.print(api_end_point);
     client.println("\"><input type=\"submit\" value=\"Update\"></form></td></tr>");
-    client.println("                  <tr><td><b>Temperature API</b></td>");
-    client.print("                    <td><form action=\"/\" method=\"GET\"><input type=\"text\" name=\"temp\" size=\"75\" value=\"");
-    client.print(temp_end_point);
-    client.println("\"><input type=\"submit\" value=\"Update\"></form></td></tr>");
-    client.println("            </table>");
-    client.println("          </blockquote>");
-    client.println("        </div>");
-    client.println("        <div id=\"debug\" class=\"tab-pane fade\">");
-    client.println("          <p>&nbsp;</p>");
-    client.println("          <blockquote>");
+    client.println("<tr><td><b>Tram Stop</b></td>");
+    client.printf("<td><form action=\"/\" method=\"GET\"><input type=\"text\" name=\"stop\" value=\"%s\">", tram_stop);
+    client.print("<input type=\"submit\" value=\"Update\"></form>");
+    client.printf("<a href=\"https://beta.reittiopas.fi/pysakit/HSL:%s\">View on map</a>", tram_stop);
+    client.println( "</td></tr>");
+    client.println("<tr><td><b>Tram API</b></td>");
+    client.printf("<td><form action=\"/\" method=\"GET\"><input type=\"text\" name=\"api\" size=\"75\" value=\"%s\">", api_end_point);
+    client.println("<input type=\"submit\" value=\"Update\"></form></td></tr>");
+    client.println("<tr><td><b>Temperature API</b></td>");
+    client.printf("<td><form action=\"/\" method=\"GET\"><input type=\"text\" name=\"temp\" size=\"75\" value=\"%s\">", temp_end_point);
+    client.println("<input type=\"submit\" value=\"Update\"></form></td></tr>");
+    client.println("</table>");
+    client.println("</blockquote>");
+    client.println("</div>");
+    client.println("<div id=\"debug\" class=\"tab-pane fade\">");
+    client.println("<p>&nbsp;</p>");
+    client.println("<blockquote>");
 
 #ifdef DEBUG
     client.print("<p>Debugging logs:</p><blockquote>");
@@ -1463,12 +1387,10 @@ void serveHTML(WiFiClient client)
         }
     }
 
-    client.println("</table>");
-
-    client.println("</blockquote>\n");
+    client.println("</table></blockquote>");
 #endif
 
-    client.println("            <p>Uptime:</p><blockquote></p>");
+    client.println("<p>Uptime:</p><blockquote><p>");
 
 
     long currentmillis = millis();
@@ -1507,11 +1429,11 @@ void serveHTML(WiFiClient client)
     client.print("</p></blockquote>");
 
 
-    client.println("          </blockquote>");
-    client.println("        </div>");
-    client.println("      </div>");
-    client.println("    </div>");
-    client.println("  </body>");
+    client.println("</blockquote>");
+    client.println("</div>");
+    client.println("</div>");
+    client.println("</div>");
+    client.println("</body>");
     client.println("</html>");
 
 }
