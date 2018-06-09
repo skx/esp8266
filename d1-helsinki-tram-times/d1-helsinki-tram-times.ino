@@ -1185,8 +1185,8 @@ void output_select(WiFiClient client, char *name, bool enabled, int selected)
 
     for (int i = 0; i < 24; i++)
     {
-        client.printf("<option value=\"%02d\" %s>%02d</option>",
-                      i, selected == i ? "selected=\"selected\"" : "", i);
+        client.printf("<option value=\"%02d\"%s>%02d</option>",
+                      i, selected == i ? " selected=\"selected\"" : "", i);
     }
 
     client.println("</select>");
