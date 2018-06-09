@@ -376,12 +376,18 @@ void setup()
     String bon = read_file("/b.on");
 
     if (bon.length() > 0)
+    {
         backlight_on = atoi(bon.c_str());
+        DEBUG_LOG("Backlight schedule turns on at %d\n", backlight_on);
+    }
 
     String boff = read_file("/b.off");
 
     if (boff.length() > 0)
+    {
         backlight_off = atoi(boff.c_str());
+        DEBUG_LOG("Backlight schedule turns off at %d\n", backlight_off);
+    }
 
     //
     // initialize the LCD
