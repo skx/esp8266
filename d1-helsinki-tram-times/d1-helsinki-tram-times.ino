@@ -104,8 +104,9 @@
 //
 #include "WiFiManager.h"
 
+
 //
-// We read/write the tram-stop to flash, along with the timezone offset.
+// We persist our settings to flash, so we need this.
 //
 #include <FS.h>
 
@@ -185,31 +186,23 @@ WiFiServer server(80);
 
 
 //
-// The top line is special, it will either show:
+// The purpose of our project is to display tram/bus departures from
+// a given stop.  However we also show the time/date upon the first
+// screen.
 //
-//  TIME + DATE
+// There are a couple of other display-modes which may be selected:
 //
-//  TIME + DATE OR TIME + Temperature, changing every 5 seconds.
-//
-//  TIME + Temperature
-//
-//  Just a fixed message.
+//  Time & date.
+//  Time & temperature.
+//  Time & date/temperature - swapping every ten seconds.
+//  A fixed message.
 //
 // Here we describe those possible states
 //
 typedef enum {DATE, DATE_OR_TEMP, MESSAGE, TEMPERATURE} state;
 
 //
-// Our selected state:
-//
-//  DATE -> Drawing time & date.
-//
-//  DATE_OR_TEMP -> Drawing time+date OR time+temp, swapping every 10s.
-//
-//  MESSAGE -> Showing a fixed message.
-//
-//  TEMPERATURE -> Drawing time + temperature.
-//
+// Our currently-selected display-mode.
 state g_state = DATE;
 
 
@@ -222,12 +215,6 @@ char g_temp[10] = {'\0'};
 // Our current message, if any, which has been set by a HTTP-client
 //
 char g_msg[128] = { '\0' };
-
-//
-// If we're to swap between date + temperature then store the current
-// state here.
-//
-state g_temp_date = DATE;
 
 //
 // The tram stop we're going to display.
@@ -247,9 +234,10 @@ char temp_end_point[256] = { '\0' };
 
 //
 // This two-dimensional array holds the text that we're
-// going to display on the LCD.
+// going to display upon our LCD.
 //
-// The first line will ALWAYS be the time/date.
+// The first line will ALWAYS be the time/date, or the other
+// data depending upon the display-mode.
 //
 // Any additional lines will contain the departure
 // time of the next tram(s).
@@ -262,7 +250,6 @@ char screen[NUM_ROWS][NUM_COLS];
 // of rows & columns.
 //
 LiquidCrystal_I2C lcd(0x27, NUM_COLS, NUM_ROWS);
-
 
 //
 // Is the backlight lit?  Defaults to true.
@@ -330,7 +317,7 @@ void setup()
         strncpy(api_end_point, DEFAULT_API_ENDPOINT, sizeof(api_end_point) - 1);
 
     //
-    // Load the weather-endpoint, if we can.
+    // Load the temperature-endpoint, if we can.
     //
     String weather_end = read_file("/temp.api");
 
@@ -401,17 +388,7 @@ void setup()
     draw_line(0, "Starting up ..");
 
     //
-    // Horrid Hack to use a static IP.
-    //
-#if 0
-    IPAddress ip(10, 0, 0, 90);
-    IPAddress gateway(10, 0, 0, 1);
-    IPAddress subnet(255, 255, 255, 0);
-    WiFi.config(ip, gateway, subnet);
-#endif
-
-    //
-    // Handle Connection.
+    // Handle the connection to the local WiFi network.
     //
     WiFiManager wifiManager;
     wifiManager.setAPCallback(access_point_callback);
@@ -426,7 +403,7 @@ void setup()
     //
     // Allow the IP to be visible.
     //
-    delay(2500);
+    delay(1500);
 
     //
     // Ensure our NTP-client is ready.
@@ -434,7 +411,7 @@ void setup()
     timeClient.begin();
 
     //
-    // Configure the callbacks.
+    // Configure the NTP-callbacks.
     //
     timeClient.on_before_update(on_before_ntp);
     timeClient.on_after_update(on_after_ntp);
@@ -453,12 +430,7 @@ void setup()
               WiFi.localIP().toString().c_str());
 
     //
-    // Allow over the air updates
-    //
-    // This is documented here:
-    //     https://randomnerdtutorials.com/esp8266-ota-updates-with-arduino-ide-over-the-air/
-    //
-    // Hostname defaults to esp8266-[ChipID]
+    // Allow over the air updates.
     //
     ArduinoOTA.setHostname(PROJECT_NAME);
 
@@ -497,10 +469,9 @@ void setup()
     ArduinoOTA.begin();
 
     //
-    // We have a switch between D8 & D0.
+    // We support the use of an optional switch between D8 & D0.
     //
-    // If this is missing no harm will be done, it will just
-    // never receive any clicks :)
+    // Configure that here.
     //
     pinMode(D8, INPUT_PULLUP);
     pinMode(D0, OUTPUT);
@@ -571,7 +542,7 @@ void access_point_callback(WiFiManager* myWiFiManager)
 
 
 //
-// This function is called continously.
+// This function is called continuously.
 //
 void loop()
 {
@@ -581,16 +552,21 @@ void loop()
     static char prev_time[NUM_COLS] = { '\0'};
 
     //
-    // The last time we changed the mode from date <-> temperature
+    // If we're in the date/temperature mode we need to keep track
+    // of the last time we swapped state, and what state we're currently
+    // in.
     //
     static long last_change = millis();
+    state g_temp_date = DATE;
 
     //
-    // Scroll-offset if we're displaying a fixed message instead of
-    // showing the date/time.
+    // If we're displaying a fixed-message, instead of the time/similar
+    // then we might need to handle scrolling it - if it is longer than
+    // our display-width.
+    //
+    // Keep track of the offset here.
     //
     static int msg_offset = 0;
-
 
     //
     // Handle any pending over the air updates.
@@ -656,16 +632,17 @@ void loop()
     // mode being changed N times in a second, with much confusion
     // and hilarity.
     //
-    if (g_state == DATE_OR_TEMP)
+    // Of course this only makes sense if we have a temperatur-end-point
+    // setup, so ignore this if we don't.
+    //
+    if ( (g_state == DATE_OR_TEMP)  && ( strlen(temp_end_point) > 0) )
     {
         if (((sec % 10) == 0) && ((millis() - last_change) > 1000))
         {
             switch (g_temp_date)
             {
             case DATE:
-                if (strlen(temp_end_point) > 0)
-                    g_temp_date = TEMPERATURE;
-
+                g_temp_date = TEMPERATURE;
                 break;
 
             case TEMPERATURE:
@@ -731,7 +708,6 @@ void loop()
         }
         else
         {
-
             // Draw the message.
             memset(screen[0], '\0', NUM_COLS);
             snprintf(screen[0], NUM_COLS - 1, "%s", g_msg + msg_offset);
@@ -739,7 +715,7 @@ void loop()
             // Ensure that we absolutely, definitely, null-terminate it.
             screen[0][NUM_COLS - 1] = '\0';
 
-            // Bump the offset for next time.
+            // Bump the offset for next time we redraw the text.
             if ((millis() - last_change) > 333)
             {
                 msg_offset += 1;
@@ -758,7 +734,7 @@ void loop()
 
     //
     // Now draw all the rows - correctly doing this
-    // after the previous step might have updated
+    // after the previous steps might have updated
     // the display.
     //
     // That avoids showing outdated information, albeit
@@ -768,10 +744,10 @@ void loop()
     // so we cheat here, only updating the LCD if the currently
     // formatted time is different to that we set in the past.
     //
-    // i.e. We don't re-draw the screen unless the time has changed.
+    // i.e. We don't re-draw the screen unless the first-line has changed.
     //
     // If the real-time hasn't changed then the tram-arrival times
-    // haven't changed either, since that only updates every two minutes..
+    // haven't changed either, since that only updates every two minutes.
     //
     if (strcmp(prev_time, screen[0]) != 0)
     {
@@ -786,9 +762,11 @@ void loop()
 
 
     //
-    // We'll disable the backlight overnight too.
+    // Optionally we allow disabling the backlight on a schedule.
     //
-    // We test for this every hour, on the hour.
+    // We test for this every hour, on the hour.  If a schedule hasn't
+    // been setup then the `on` and `off` times will be `-1`, so
+    // they will never match and we're safe.
     //
     if ((min == 0) && (sec == 0))
     {
@@ -827,9 +805,9 @@ void loop()
         processHTTPRequest(client);
 
     //
-    // Now sleep, to avoid updating our LCD too often.
+    // Now sleep a little.
     //
-    delay(20);
+    delay(10);
 }
 
 //
@@ -1073,14 +1051,15 @@ void fetch_temperature()
 
         if (body.length() > 0)
         {
-            // degree, C, NULL
+            // "degree", "C", "terminator".
             char deg[3] = { 0xDF, 'C', '\0' };
 
-            // Remove the any newline(s) that might be present.
+            // Remove the any newline(s) that might be present in the
+            // response from the remote host.
             body.trim();
 
             // Update `g_temp` with the returned temperature,
-            // and the degree-symbol.
+            // appending "$degree C".
             snprintf(g_temp, sizeof(g_temp) - 1, "%s%s", body.c_str(), deg);
         }
         else
@@ -1184,6 +1163,8 @@ void redirectIndex(WiFiClient client)
 //
 // Output a <select> tag, with a list of hours.
 //
+// One of these might be selected.
+//
 void output_select(WiFiClient client, char *name, bool enabled, int selected)
 {
     client.printf("<select id=\"%s\" name=\"%s\" %s>", name, name,
@@ -1201,8 +1182,7 @@ void output_select(WiFiClient client, char *name, bool enabled, int selected)
 //
 // This is a bit horrid.
 //
-// Serve a HTML-page to any clients who connect, via
-// a browser.
+// Serve a HTML-page to any clients who connect via a browser.
 //
 void serveHTML(WiFiClient client)
 {
@@ -1282,32 +1262,36 @@ void serveHTML(WiFiClient client)
     client.println("</blockquote>");
     client.println("<h2 class=\"underline\">Configuration</h2>");
     client.println("<p>&nbsp;</p>");
+
+    // Tab navigation
     client.println("<ul class=\"nav nav-tabs\">");
     client.println("<li class=\"active\"><a data-toggle=\"tab\" href=\"#backlight\">Backlight</a></li>");
     client.println("<li><a data-toggle=\"tab\" href=\"#display\">Display</a></li>");
     client.println("<li><a data-toggle=\"tab\" href=\"#config\">Configuration</a></li>");
     client.println("<li><a data-toggle=\"tab\" href=\"#debug\">Debug</a></li>");
     client.println("</ul>");
+
+
+    // Tab content
     client.println("<div class=\"tab-content\">");
+
+    // Tab 1 - Backlight
     client.println("<div id=\"backlight\" class=\"tab-pane fade in active\">");
     client.println("<blockquote>");
     client.println("<p>&nbsp;</p>");
     client.println("<table class=\"table table-striped table-hover table-condensed table-bordered\">");
     client.println("<tr><td><b>Backlight</b></td><td>");
-
     // Showing the state.
     if (backlight)
         client.println("<p>On, <a href=\"/?backlight=off\">turn off</a>.</p>");
     else
         client.println("<p>Off, <a href=\"/?backlight=on\">turn on</a>.</p>");
-
     client.println("</td></tr>");
 
     //
     // Is there a schedule setup?
     //
     bool scheduled = true;
-
     if ((backlight_on == -1) && (backlight_off == -1))
         scheduled = false;
 
@@ -1329,6 +1313,8 @@ void serveHTML(WiFiClient client)
     client.println("</table>");
     client.println("</blockquote>");
     client.println("</div>");
+
+    // Tab 2 - Display
     client.println("<div id=\"display\" class=\"tab-pane fade\">");
     client.println("<p>&nbsp;</p>");
     client.println("<blockquote>");
@@ -1344,6 +1330,8 @@ void serveHTML(WiFiClient client)
     client.println("</form>");
     client.println("</blockquote>");
     client.println("</div>");
+
+    // Tab 3 - Configuration
     client.println("<div id=\"config\" class=\"tab-pane fade\">");
     client.println("<p>&nbsp;</p>");
     client.println("<blockquote>");
@@ -1374,14 +1362,14 @@ void serveHTML(WiFiClient client)
     client.println("</table>");
     client.println("</blockquote>");
     client.println("</div>");
+
+    // Tab 4 - Debug
     client.println("<div id=\"debug\" class=\"tab-pane fade\">");
     client.println("<p>&nbsp;</p>");
     client.println("<blockquote>");
-
 #ifdef DEBUG
     client.print("<p>Debugging logs:</p><blockquote>");
     client.println("<table class=\"table table-striped table-hover table-condensed table-bordered\">");
-
     for (int i = 0; i < DEBUG_MAX; i++)
     {
         if (debug_logs[i] != "")
@@ -1393,15 +1381,12 @@ void serveHTML(WiFiClient client)
             client.print("</td></tr>");
         }
     }
-
     client.println("</table></blockquote>");
 #endif
-
     client.println("<p>Uptime:</p><blockquote><p>");
 
 
     long currentmillis = millis();
-
     long days = 0;
     long hours = 0;
     long mins = 0;
@@ -1447,8 +1432,7 @@ void serveHTML(WiFiClient client)
 
 
 //
-// Open the given file for writing, and write
-// out the specified data.
+// Open the given file for writing, and write out the specified data.
 //
 void write_file(const char *path, const char *data)
 {
@@ -1525,6 +1509,13 @@ void draw_line(int row, const char *txt)
 
 //
 // Process an incoming HTTP-request.
+//
+// Here we look for GET requests that are updating our configuration-options
+// and if they're found we handle them.
+//
+// If we handled something we might issue a redirection back to the server
+// root - otherwise we return the same HTML every time.  There's no AJAX
+// or other dynamic action happening.
 //
 void processHTTPRequest(WiFiClient client)
 {
