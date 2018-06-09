@@ -635,7 +635,7 @@ void loop()
     // Of course this only makes sense if we have a temperatur-end-point
     // setup, so ignore this if we don't.
     //
-    if ( (g_state == DATE_OR_TEMP)  && ( strlen(temp_end_point) > 0) )
+    if ((g_state == DATE_OR_TEMP)  && (strlen(temp_end_point) > 0))
     {
         if (((sec % 10) == 0) && ((millis() - last_change) > 1000))
         {
@@ -1281,17 +1281,20 @@ void serveHTML(WiFiClient client)
     client.println("<p>&nbsp;</p>");
     client.println("<table class=\"table table-striped table-hover table-condensed table-bordered\">");
     client.println("<tr><td><b>Backlight</b></td><td>");
+
     // Showing the state.
     if (backlight)
         client.println("<p>On, <a href=\"/?backlight=off\">turn off</a>.</p>");
     else
         client.println("<p>Off, <a href=\"/?backlight=on\">turn on</a>.</p>");
+
     client.println("</td></tr>");
 
     //
     // Is there a schedule setup?
     //
     bool scheduled = true;
+
     if ((backlight_on == -1) && (backlight_off == -1))
         scheduled = false;
 
@@ -1370,6 +1373,7 @@ void serveHTML(WiFiClient client)
 #ifdef DEBUG
     client.print("<p>Debugging logs:</p><blockquote>");
     client.println("<table class=\"table table-striped table-hover table-condensed table-bordered\">");
+
     for (int i = 0; i < DEBUG_MAX; i++)
     {
         if (debug_logs[i] != "")
@@ -1381,6 +1385,7 @@ void serveHTML(WiFiClient client)
             client.print("</td></tr>");
         }
     }
+
     client.println("</table></blockquote>");
 #endif
     client.println("<p>Uptime:</p><blockquote><p>");
