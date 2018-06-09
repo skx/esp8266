@@ -1263,13 +1263,13 @@ void serveHTML(WiFiClient client)
     client.println("      <h2 class=\"underline\">Configuration</h2>");
     client.println("      <p>&nbsp;</p>");
     client.println("      <ul class=\"nav nav-tabs\">");
-    client.println("        <li class=\"active\"><a data-toggle=\"tab\" href=\"#general\">General</a></li>");
+    client.println("        <li class=\"active\"><a data-toggle=\"tab\" href=\"#backlight\">Backlight</a></li>");
     client.println("        <li><a data-toggle=\"tab\" href=\"#display\">Display</a></li>");
     client.println("        <li><a data-toggle=\"tab\" href=\"#config\">Configuration</a></li>");
     client.println("        <li><a data-toggle=\"tab\" href=\"#debug\">Debug</a></li>");
     client.println("      </ul>");
     client.println("      <div class=\"tab-content\">");
-    client.println("        <div id=\"general\" class=\"tab-pane fade in active\">");
+    client.println("        <div id=\"backlight\" class=\"tab-pane fade in active\">");
     client.println("          <blockquote>");
     client.println("            <p>&nbsp;</p>");
     client.println("            <table  class=\"table table-striped table-hover table-condensed table-bordered\">");
@@ -1356,19 +1356,6 @@ void serveHTML(WiFiClient client)
 
     client.println("</select><input type=\"submit\" value=\"Update\"></p></form></td></tr>");
 
-    client.println("              <tr><td><b>Timezone</b></td>");
-    client.print("                <td><form action=\"/\" method=\"GET\"><input type=\"text\" name=\"tz\" value=\"");
-
-    if (time_zone_offset > 0)
-        client.print("+");
-
-    if (time_zone_offset < 0)
-        client.print("-");
-
-    client.print(time_zone_offset);
-
-    client.println("\"><input type=\"submit\" value=\"Update\"></form></td>");
-    client.println("              </tr>");
     client.println("            </table>");
     client.println("          </blockquote>");
     client.println("        </div>");
@@ -1425,6 +1412,20 @@ void serveHTML(WiFiClient client)
     client.println("          <p>&nbsp;</p>");
     client.println("          <blockquote>");
     client.println("            <table class=\"table table-striped table-hover table-condensed table-bordered\">");
+    client.println("              <tr><td><b>Timezone</b></td>");
+    client.print("                <td><form action=\"/\" method=\"GET\"><input type=\"text\" name=\"tz\" value=\"");
+
+    if (time_zone_offset > 0)
+        client.print("+");
+
+    if (time_zone_offset < 0)
+        client.print("-");
+
+    client.print(time_zone_offset);
+
+    client.println("\"><input type=\"submit\" value=\"Update\"></form></td>");
+    client.println("              </tr>");
+
     client.println("              <tr><td><b>Tram Stop</b></td>");
     client.print("                <td><form action=\"/\" method=\"GET\"><input type=\"text\" name=\"stop\" value=\"");
     client.print(tram_stop);
