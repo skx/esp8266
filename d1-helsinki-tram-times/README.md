@@ -3,7 +3,9 @@
 This project combines an ESP8266 processor with a LCD display, such that
 it shows the next departures from a given Helsinki tram-stop.
 
-The code is self-contained, and described on this project homepage:
+> **NOTE**: In all this project we talk about "trams", but what we _actually_ display is departures from a given location.  If the location is a tram-stop you'll see tram-details, and if the location is a bus-stop you'll see bus-details.  (There are no stops in Helsinki which allow both trams _and_ busses!)
+
+The code is self-contained, and is introduced on the project homepage:
 
 * https://steve.fi/Hardware/helsinki-tram-times/
 
