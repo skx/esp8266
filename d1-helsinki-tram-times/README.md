@@ -32,37 +32,33 @@ you can select which network it should auto-join in the future.
 
 > (This "connect or configure" behaviour is implemented by the excellent [WiFiManager](https://github.com/tzapu/WiFiManager) class.)
 
-The only addition configuration required is to set the stop to view - by
-default it will show the departures of the stop near my house:
+The only addition configuration which is required is the setup of the
+stop to view - by default it will show the departures of the stop near my house:
 
 * [Kytösuontie](https://beta.reittiopas.fi/pysakit/HSL:1160404).
 
-To change the tram-stop open the IP address in your browser and use
-the HTML-form to submit the new ID, which you can find by panning/zooming
-the map linked to above.
+To change the location which is displayed open the IP address of the device
+in your browser and use the HTML-form to submit the new ID.  (Using the
+map above will let you find IDs.)
 
 
 ## Remote API
 
-The script by parses and displays a simple CSV file which is hosted
-remotely.  By default that is:
+The code in this project polls a remote end-point every two minutes, parsing
+the data there and displaying it.
 
-     https://api.steve.fi/Helsinki-Transport/data/__ID__
-
-You can use your browser to replace that end-point with one of your
-own choosing - which means that you can host it yourself, and write
-your own tram-data there.
-
-This will allow you to use this project with zero changes to the code!
-
-The CSV has the following three fields:
+The remote URL returns the data as a set of lines in CSV format, with the following three fields:
 
 * Identifier
   * (i.e. tram-route, or bus-route).
- Time
+* Time
   * HH:MM:SS
 * Destination
   * i.e. "Kirurgi", "Olympiaterminaali - Töölö - Länsi-Pasila", etc.
+
+You can use the web-UI to change the URL which is polled to one of your
+own choosing, allowing you to self-host things if you wish.  Or return
+different data.
 
 
 # Optional Button
@@ -72,9 +68,9 @@ If you wire a button between D0 & D8 you gain additional functionality:
 * Short-Press the button to toggle the backlight.
 * Double-click to show a brief information-page.
 * Long-Press the button to resync the device:
-  * Date/time
+  * Date/time.
   * Departure-data.
-  * Temperature data (if appropriate)
+  * Temperature data (if appropriate).
 
 The info-page looks like this:
 
