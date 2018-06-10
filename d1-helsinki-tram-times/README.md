@@ -32,15 +32,20 @@ you can select which network it should auto-join in the future.
 
 > (This "connect or configure" behaviour is implemented by the excellent [WiFiManager](https://github.com/tzapu/WiFiManager) class.)
 
-The only addition configuration required is to set the tram-stop to
-view - by default it will show the departures of [Kytösuontie](https://hsl.trapeze.fi/omatpysakit/web?command=fullscreen2&stop=1160404).   To change
-the tram-stop open the IP address in your browser and use the HTML-form
-to submit the new ID.
+The only addition configuration required is to set the stop to view - by
+default it will show the departures of the stop near my house:
+
+* [Kytösuontie](https://beta.reittiopas.fi/pysakit/HSL:1160404).
+
+To change the tram-stop open the IP address in your browser and use
+the HTML-form to submit the new ID, which you can find by panning/zooming
+the map linked to above.
+
 
 ## Remote API
 
-The script by default parses, and displays, a simple CSV file which is
-hosted remotely.  By default that is:
+The script by parses and displays a simple CSV file which is hosted
+remotely.  By default that is:
 
      https://api.steve.fi/Helsinki-Transport/data/__ID__
 
@@ -50,6 +55,15 @@ your own tram-data there.
 
 This will allow you to use this project with zero changes to the code!
 
+The CSV has the following three fields:
+
+* Identifier
+  * (i.e. tram-route, or bus-route).
+ Time
+  * HH:MM:SS
+* Destination
+  * i.e. "Kirurgi", "Olympiaterminaali - Töölö - Länsi-Pasila", etc.
+
 
 # Optional Button
 
@@ -57,7 +71,10 @@ If you wire a button between D0 & D8 you gain additional functionality:
 
 * Short-Press the button to toggle the backlight.
 * Double-click to show a brief information-page.
-* Long-Press the button to resync the date/time __and__ the tram-data.
+* Long-Press the button to resync the device:
+  * Date/time
+  * Departure-data.
+  * Temperature data (if appropriate)
 
 The info-page looks like this:
 
