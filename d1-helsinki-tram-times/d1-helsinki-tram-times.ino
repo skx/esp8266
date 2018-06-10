@@ -557,7 +557,7 @@ void loop()
     // in.
     //
     static long last_change = millis();
-    state g_temp_date = DATE;
+    static state g_temp_date = DATE;
 
     //
     // If we're displaying a fixed-message, instead of the time/similar
