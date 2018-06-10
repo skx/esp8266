@@ -1239,20 +1239,28 @@ void serveHTML(WiFiClient client)
 
 
     // Now show the calculated tram-times
+
+    // For each row.
     for (int i = 0; i < NUM_ROWS; i++)
     {
         client.print("<tr><td><code>");
 
-        for (int j = 0; j < strlen(screen[i]); j++)
+        int len = strlen(screen[i]);
+
+        // Print the text in this line.
+        for (int j = 0; j < len; j++)
         {
+            //
+            // But ensure that we change 0xDF
+            // into the degree symbol.
+            //
+            // Without this we get a "?" in the
+            // HTML-output.
+            //
             if (screen[i][j] == 0xDF)
-            {
                 client.print("&deg;");
-            }
             else
-            {
                 client.print(screen[i][j]);
-            }
         }
 
         client.print("</code></td></tr>");
@@ -1328,7 +1336,6 @@ void serveHTML(WiFiClient client)
     client.printf("<p><input name=\"mode\" id=\"dt\" value=\"dt\" type=\"radio\"%s>Alternate date &amp; temperature</p>", g_state == DATE_OR_TEMP ? " checked=\"checked\"" : "");
     client.printf("<p><input name=\"mode\" id=\"msg\" value=\"msg\" type=\"radio\"%s>Show a message - <input type=\"text\" id=\"msg_txt\" name=\"msg_txt\" value=\"%s\" %s></p>",
                   g_state == MESSAGE ? " checked=\"checked\"" : "", g_msg, g_state != MESSAGE ? "disabled" : "");
-
     client.println("<p><input type=\"submit\" value=\"Update\"></p>");
     client.println("</form>");
     client.println("</blockquote>");
@@ -1388,7 +1395,7 @@ void serveHTML(WiFiClient client)
 
     client.println("</table></blockquote>");
 #endif
-    client.println("<p>Uptime:</p><blockquote><p>");
+    client.println("<p>Uptime:</p><blockquote>");
 
 
     long currentmillis = millis();
@@ -1404,26 +1411,8 @@ void serveHTML(WiFiClient client)
     mins = mins - (hours * 60);
     hours = hours - (days * 24);
 
-    if (days > 1)
-    {
-        client.print(days);
-        client.print(" days and ");
-    }
-
-    if (days == 1)
-    {
-        client.print(days);
-        client.print(" day and ");
-    }
-
-    client.print(hours);
-    client.print(" hours, ");
-    client.print(mins);
-    client.print(" minutes, ");
-    client.print(secs);
-    client.println(" seconds.");
-
-    client.print("</p></blockquote>");
+    client.printf("<p>%d day%s, %d hours, %d minutes, %d seconds.</p>", days, days == 1 ? "" : "s", hours, mins, secs);
+    client.print("</blockquote>");
 
 
     client.println("</blockquote>");
