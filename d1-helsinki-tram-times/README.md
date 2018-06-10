@@ -35,7 +35,7 @@ you can select which network it should auto-join in the future.
 The only addition configuration which is required is the setup of the
 stop to view - by default it will show the departures of the stop near my house:
 
-* [Kytösuontie](https://beta.reittiopas.fi/pysakit/HSL:1160404).
+* [Kytösuontie](https://www.reittiopas.fi/pysakit/HSL:1160404).
 
 To change the location which is displayed open the IP address of the device
 in your browser and use the HTML-form to submit the new ID.  (Using the

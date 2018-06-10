@@ -1368,7 +1368,7 @@ void serveHTML(WiFiClient client)
     client.println("<tr><td><b>Tram Stop</b></td>");
     client.printf("<td><form action=\"/\" method=\"GET\"><input type=\"text\" name=\"stop\" value=\"%s\">", tram_stop);
     client.print("<input type=\"submit\" value=\"Update\"></form>");
-    client.printf("<a href=\"https://beta.reittiopas.fi/pysakit/HSL:%s\">View on map</a>", tram_stop);
+    client.printf("<a href=\"https://www.reittiopas.fi/pysakit/HSL:%s\">View on map</a>", tram_stop);
     client.println("</td></tr>");
     client.println("<tr><td><b>Tram API</b></td>");
     client.printf("<td><form action=\"/\" method=\"GET\"><input type=\"text\" name=\"api\" size=\"75\" value=\"%s\">", api_end_point);
