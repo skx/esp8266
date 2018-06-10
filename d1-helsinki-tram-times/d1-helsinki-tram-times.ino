@@ -871,9 +871,16 @@ void handlePendingButtons()
         long_click = false;
         DEBUG_LOG("Long Click\n");
 
-        // Update the date/time & tram-data.
+        // Update the date/time
         timeClient.forceUpdate();
+
+        // Refresh the tram data
         fetch_tram_times();
+
+        // Refresh the temperature
+        if (g_state == TEMPERATURE || g_state == DATE_OR_TEMP)
+            fetch_temperature();
+
     }
 
     //
