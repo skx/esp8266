@@ -538,6 +538,12 @@ void access_point_callback(WiFiManager* myWiFiManager)
 {
     draw_line(0, "AccessPoint Mode");
     draw_line(1, PROJECT_NAME);
+
+    if (NUM_ROWS > 2)
+    {
+        draw_line(2, "IP Address:");
+        draw_line(3, WiFi.localIP().toString().c_str());
+    }
 }
 
 
