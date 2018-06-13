@@ -203,6 +203,7 @@ typedef enum {DATE, DATE_OR_TEMP, MESSAGE, TEMPERATURE} state;
 
 //
 // Our currently-selected display-mode.
+//
 state g_state = DATE;
 
 
@@ -217,17 +218,17 @@ char g_temp[10] = {'\0'};
 char g_msg[128] = { '\0' };
 
 //
-// The tram stop we're going to display.
+// The ID of the bus/tram stop we're going to display departures for.
 //
 char tram_stop[12] = { '\0' };
 
 //
-// The API end-point we poll for display-purposes
+// The API end-point to return departure-data from.
 //
 char api_end_point[256] = { '\0' };
 
 //
-// The API end-point for getting temperature
+// The API end-point for getting temperature.
 //
 char temp_end_point[256] = { '\0' };
 
@@ -635,7 +636,7 @@ void loop()
     // Of course this only makes sense if we have a temperatur-end-point
     // setup, so ignore this if we don't.
     //
-    if ((g_state == DATE_OR_TEMP)  && (strlen(temp_end_point) > 0))
+    if ((g_state == DATE_OR_TEMP) && (strlen(temp_end_point) > 0))
     {
         if (((sec % 10) == 0) && ((millis() - last_change) > 1000))
         {
