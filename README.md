@@ -51,13 +51,6 @@ This [simple project](d1-temp) records the current temperature & humidity value 
 
 The [d1-web-radio](d1-web-radio) project allows a web-browser to control a TEA5767-based radio receiver, allowing you to listen to the radio with ease.
 
-## Weather Station
-
-The [d1-weather-station](d1-weather-station) uses an OLED display to show the current date, time, weather-summary & three-day summary via remote HTTP fetches from wunderground.com.
-
-* This is __not my project__, but was very interesting to read and cleanup.
-
-
 ## Water Flow Counting
 
 The [d1-water-meter](d1-water-meter) project is a simple one that measures
