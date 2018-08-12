@@ -182,8 +182,10 @@ void display_url(const char * m_path)
     // Now we hope we'll have smooth-sailing, and we'll
     // read a single character until we've got it all
     //
-    while (m_client.available())
+    while (m_client.connected())
     {
+      if(m_client.available())
+      {
         char c = m_client.read();
 
         if (finishedHeaders)
@@ -257,8 +259,7 @@ void display_url(const char * m_path)
         else if (c != '\r')
             currentLineIsBlank = false;
 
-        // Wait for more packetses
-        delay(1);
+      }
     }
 
     DEBUG_LOG("Nothing more is available - terminating");
