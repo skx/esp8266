@@ -84,13 +84,13 @@
 //
 // The string `__ID__` in this URL will be replaced by the ID of the stop.
 //
-#define DEFAULT_API_ENDPOINT "https://api.steve.fi/Helsinki-Transport/data/__ID__"
+#define DEFAULT_API_ENDPOINT "http://api.steve.fi/Helsinki-Transport/data/__ID__"
 
 
 //
 // The temperature API URL
 //
-#define DEFAULT_WEATHER_ENDPOINT "https://api.steve.fi/Helsinki-Temperature/data/"
+#define DEFAULT_WEATHER_ENDPOINT "http://api.steve.fi/Helsinki-Temperature/data/"
 
 
 //
