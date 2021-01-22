@@ -1114,7 +1114,7 @@ void fetch_tram_times()
     //
     // Show what we're going to do.
     //
-    DEBUG_LOG("Fetching tram-data from %s\n", url.c_str());
+    DEBUG_LOG("Fetching tram-data from <a href=\"%s\">%s</a>\n", url.c_str(), url.c_str());
 
     //
     // Fetch the contents of the remote URL.
