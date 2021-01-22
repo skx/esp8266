@@ -1426,6 +1426,7 @@ void serveHTML(WiFiClient client)
     hours = hours - (days * 24);
 
     client.printf("<p>%d day%s, %d hours, %d minutes, %d seconds.</p>", days, days == 1 ? "" : "s", hours, mins, secs);
+    client.printf("<p><a href=\"/?reboot=reboot\">Reboot device</a>.</p>");
     client.print("</blockquote>");
 
 
@@ -1548,6 +1549,16 @@ void processHTTPRequest(WiFiClient client)
     // be present, via our utility-helper.
     //
     URL url(request.c_str());
+
+    //
+    // Does the user want to reboot?
+    //
+    char *b = url.param("reboot");
+    if (b != NULL && ( strcmp(b, "reboot" ) == 0 ) ) {
+        redirectIndex(client);
+        ESP.reset();
+        return;
+    }
 
     //
     // Does the user want to change the backlight?
