@@ -84,13 +84,13 @@
 //
 // The string `__ID__` in this URL will be replaced by the ID of the stop.
 //
-#define DEFAULT_API_ENDPOINT "https://api.steve.fi/Helsinki-Transport/data/__ID__"
+#define DEFAULT_API_ENDPOINT "http://api.steve.fi/Helsinki-Transport/data/__ID__"
 
 
 //
 // The temperature API URL
 //
-#define DEFAULT_WEATHER_ENDPOINT "https://api.steve.fi/Helsinki-Temperature/data/"
+#define DEFAULT_WEATHER_ENDPOINT "http://api.steve.fi/Helsinki-Temperature/data/"
 
 
 //
@@ -609,6 +609,11 @@ void loop()
     String m_name = timeClient.getMonth();
     int day = timeClient.getDayOfMonth();
 
+    // Prefix for the debug-output will have our time in it.
+    char tmp_debug_date[11];
+    snprintf(tmp_debug_date, sizeof(tmp_debug_date)-1, "%02d:%02d:%02d ",
+             hour, min, sec);
+    debug_prefix = String(tmp_debug_date);
 
     //
     // Every two minutes we'll update the departure times.
@@ -1048,7 +1053,7 @@ void fetch_temperature()
     //
     // Make our remote call.
     //
-    DEBUG_LOG("Fetching temperature-data from %s\n", temp_end_point);
+    DEBUG_LOG("Fetching temperature-data from <a href=\"%s\">%s</a>\n", temp_end_point, temp_end_point);
     UrlFetcher client(temp_end_point);
 
     //
@@ -1114,7 +1119,7 @@ void fetch_tram_times()
     //
     // Show what we're going to do.
     //
-    DEBUG_LOG("Fetching tram-data from %s\n", url.c_str());
+    DEBUG_LOG("Fetching tram-data from <a href=\"%s\">%s</a>\n", url.c_str(), url.c_str());
 
     //
     // Fetch the contents of the remote URL.
@@ -1426,6 +1431,7 @@ void serveHTML(WiFiClient client)
     hours = hours - (days * 24);
 
     client.printf("<p>%d day%s, %d hours, %d minutes, %d seconds.</p>", days, days == 1 ? "" : "s", hours, mins, secs);
+    client.printf("<p><a href=\"/?reboot=reboot\">Reboot device</a>.</p>");
     client.print("</blockquote>");
 
 
@@ -1548,6 +1554,16 @@ void processHTTPRequest(WiFiClient client)
     // be present, via our utility-helper.
     //
     URL url(request.c_str());
+
+    //
+    // Does the user want to reboot?
+    //
+    char *b = url.param("reboot");
+    if (b != NULL && ( strcmp(b, "reboot" ) == 0 ) ) {
+        redirectIndex(client);
+        ESP.reset();
+        return;
+    }
 
     //
     // Does the user want to change the backlight?

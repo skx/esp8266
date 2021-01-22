@@ -10,6 +10,7 @@
 //
 #define DEBUG_MAX 20
 String debug_logs[DEBUG_MAX];
+String debug_prefix;
 
 //
 // Record a debug-message, only if `DEBUG` is defined.
@@ -22,9 +23,10 @@ void DEBUG_LOG(const char *format, ...)
     va_list arguments;
     va_start(arguments, format);
     vsnprintf(buff, sizeof(buff), format, arguments);
+    Serial.print(debug_prefix);
     Serial.print(buff);
 
-    debug_logs[last_debug] = String(buff);
+    debug_logs[last_debug] = String(debug_prefix) + String(buff);
     last_debug += 1;
 
     if (last_debug >= DEBUG_MAX)
